@@ -1,0 +1,18 @@
+{
+  "name": "prstatus",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/manifest.json",
+  "scripts": {
+    "build": "cross-env NODE_ENV=development parcel src/manifest.json"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {},
+  "devDependencies": {
+    "@types/chrome": "0.0.114",
+    "cross-env": "^7.0.2",
+    "parcel-bundler": "^1.12.4",
+    "parcel-plugin-web-extension": "^1.6.1"
+  }
+}

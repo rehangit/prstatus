@@ -1,0 +1,22 @@
+{
+  "name": "PR Status",
+  "description": "Inject PR Review Approval status in Jira card",
+  "version": "0.0.1",
+  "background": { "scripts": ["background.js"], "persistent": false },
+  "permissions": [
+    "background",
+    "tabs",
+    "declarativeContent",
+    "activeTab",
+    "https://*.atlassian.net/*"
+  ],
+  "page_action": { "default_popup": "options/index.html" },
+  "content_scripts": [
+    {
+      "matches": ["https://*.atlassian.net/secure/RapidBoard.jspa?*"],
+      "js": ["contentscript.js"]
+    }
+  ],
+  "icons": { "128": "icons/icon-active.png" },
+  "manifest_version": 2
+}
