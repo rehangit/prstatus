@@ -1,9 +1,6 @@
 h2 {
   color: #06f;
 }
-body {
-  font: 0.8rem "Lato", sans-serif;
-}
 
 .icon {
   position: absolute;
@@ -18,24 +15,19 @@ form {
   display: block;
 }
 
-form .field {
-  margin: 10px 0px;
+form fieldset {
+  margin: 12px 0px;
   display: block;
 }
 
-form .field label {
-  display: inline-block;
-  font-weight: bold;
-}
-
-form .field input {
+.field-value {
   display: inline-block;
   width: 500px;
   font-family: monospace;
   font-size: large;
 }
 
-legend {
+form fieldset legend {
   background-color: #000;
   color: #fff;
   padding: 3px 6px;

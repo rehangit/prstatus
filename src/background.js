@@ -1,22 +1,9 @@
 const defaultConfig = {
-  GITHUB_TOKEN: "PERSONAL_ACCESS_TOKEN_WITH_REPO_AND_USER_SCOPE",
-  GITHUB_ACCOUNT: "GITHUB_ACCOUNT_NAME",
+  GITHUB_ACCOUNT: "",
+  GITHUB_TOKEN: "",
+  GITHUB_REPOS: [],
   URL_PATTERN_FOR_PAGE_ACTION: ".+.atlassian.net/secure/RapidBoard.jspa",
-  JIRA_TICKET_ID_PATTERN: "[A-Z]{2,5}-[0-9]{1,4}",
 };
-
-let config;
-
-// function displayPageAction(tabId, changeInfo, tab) {
-//   const { url, title } = tab;
-//   console.log({ tabId, url, status, title });
-//   if (url.match(URL_PATTERN) && changeInfo.status === "complete") {
-//     chrome.pageAction.setIcon({ tabId, path: "icons/icon-active.png" });
-//   }
-//   chrome.pageAction.show(tabId);
-// }
-
-// chrome.tabs.onUpdated.addListener(displayPageAction);
 
 const resetPageActionRules = ({ urlMatches }) => {
   chrome.declarativeContent.onPageChanged.removeRules(undefined, () => {
@@ -41,30 +28,43 @@ chrome.runtime.onInstalled.addListener(() => {
   resetPageActionRules({ urlMatches: config.URL_PATTERN_FOR_PAGE_ACTION });
 });
 
-// const changeBgColor = (tabId, changeInfo, tab) => {
-//   const { url, title } = tab;
-//   if (url.match(URL_PATTERN) && changeInfo.status === "complete") {
-//     console.log("content script in background", { tabId, url, status, title });
-
-//     chrome.tabs.executeScript({
-//       code: 'document.body.style.backgroundColor="orange"'
-//     });
-//   }
-// };
-
-//chrome.tabs.onUpdated.addListener(changeBgColor);
+const readConfig = () => {
+  const localStorageConfig =
+    JSON.parse(localStorage.getItem("PrStatusConfig") || null) || defaultConfig;
+  return localStorageConfig;
+};
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log("background onMessage listener", { request, sender });
-  if (request == "sendConfig") {
-    const localStorageConfig =
-      JSON.parse(localStorage.getItem("PrStatusConfig") || null) ||
-      defaultConfig;
-
-    console.log("background onMessage listener 2", { localStorageConfig });
-    sendResponse(localStorageConfig, () => {
-      console.log("background onMessage sendResponse response");
-    });
+  console.log("background onMessage received message to send config", {
+    request,
+    sender,
+  });
+  if (request.action == "sendConfig") {
+    const config = readConfig();
+    console.log("background onMessagesending config", { config });
+    sendResponse(config);
   }
-  return true;
+
+  if (request.action == "saveConfig") {
+    console.log("background onMessage saveConfig", { config: request.config });
+    localStorage.setItem("PrStatusConfig", JSON.stringify(request.config));
+  }
+});
+
+chrome.pageAction.onClicked.addListener((...args) => {
+  console.log("Page action on click handler", { args });
+  chrome.tabs.sendMessage(args[0].id, "refresh");
+});
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === "complete") {
+    console.log("in background chrome.tabs.onUpdated.addListener", {
+      tabId,
+      changeInfo,
+      tab,
+    });
+    const { URL_PATTERN_FOR_PAGE_ACTION } = readConfig();
+    if (tab.url.match(URL_PATTERN_FOR_PAGE_ACTION))
+      chrome.tabs.sendMessage(tabId, "refresh");
+  }
 });

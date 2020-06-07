@@ -4,7 +4,7 @@
   "description": "",
   "main": "src/manifest.json",
   "scripts": {
-    "build": "cross-env NODE_ENV=development parcel src/manifest.json"
+    "build": "cross-env NODE_ENV=production parcel src/manifest.json"
   },
   "author": "",
   "license": "ISC",
