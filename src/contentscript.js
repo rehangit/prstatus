@@ -1,20 +1,34 @@
 console.log("content script global");
 
-const injectPrStatus = (config) => {
-  const columnHeaders = [
-    ...document.querySelectorAll(".ghx-column-headers li.ghx-column"),
-  ].map((col) => {
-    const id = col.attributes["data-id"].value;
-    const title = col.querySelector("h2").innerText;
-    return { id, title };
-  });
-  const issues = [...document.querySelectorAll(".ghx-issue")].map((n) => ({
-    jiraId: n.attributes["data-issue-key"].value,
-    issueId: n.attributes["data-issue-id"].value,
-    extraFieldsNode: n.querySelector(".ghx-extra-fields"),
-  }));
+const injectPrStatus = async (config) => {
+  // const columnHeaders = [
+  //   ...document.querySelectorAll(".ghx-column-headers li.ghx-column"),
+  // ].map((col) => {
+  //   const id = col.attributes["data-id"].value;
+  //   const title = col.querySelector("h2").innerText;
+  //   return { id, title };
+  // });
+  // const issues = [...document.querySelectorAll(".ghx-issue")].map((n) => ({
+  //   jiraId: n.attributes["data-issue-key"].value,
+  //   issueId: n.attributes["data-issue-id"].value,
+  //   extraFieldsNode: n.querySelector(".ghx-extra-fields"),
+  // }));
+  const boardId = window.location.search.match("rapidView=([0-9]+?)&")[1];
+  const jql =
+    config.JIRA_STATUSES &&
+    config.JIRA_STATUSES.trim()
+      .split(",")
+      .map((s) => `status="${s.trim()}"`)
+      .join(" OR ");
+  const fetchUrl = `/rest/agile/1.0/board/${boardId}/issue?jql=${jql}`;
+  console.log({ jql, fetchUrl });
 
-  console.log(new Date().toISOString(), { columnHeaders, issues });
+  const issues = await fetch(fetchUrl)
+    .then((r) => r.json())
+    .then((d) => d.issues.map(({ key, id }) => ({ key, id })))
+    .catch(console.error);
+
+  console.log({ boardId, jiraStatuses: config.JIRA_STATUSES, issues });
 
   issues.forEach((i) => {
     const htmlToInsert = `
@@ -25,10 +39,14 @@ const injectPrStatus = (config) => {
         </span>
     </div>
     `;
-    const elem = i.extraFieldsNode.querySelector(".prstatus-row");
-    if (!elem) {
-      i.extraFieldsNode.insertAdjacentHTML("beforeend", htmlToInsert);
-    }
+    const extraFieldsNode = document.querySelector(
+      `.ghx-issue[data-issue-id='${i.id}'] .ghx-extra-fields`,
+    );
+    if (!extraFieldsNode) return;
+
+    const elem = extraFieldsNode.querySelector(".prstatus-row");
+    if (elem) elem.remove();
+    extraFieldsNode.insertAdjacentHTML("beforeend", htmlToInsert);
   });
 };
 

@@ -2,6 +2,7 @@ const defaultConfig = {
   GITHUB_ACCOUNT: "",
   GITHUB_TOKEN: "",
   GITHUB_REPOS: [],
+  JIRA_STATUSES: "Code Review",
   URL_PATTERN_FOR_PAGE_ACTION: ".+.atlassian.net/secure/RapidBoard.jspa",
 };
 

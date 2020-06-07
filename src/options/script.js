@@ -5,6 +5,10 @@ const description = {
     "Personal Access Token with 'repo' and 'user' scope",
   ],
   GITHUB_REPOS: ["Github Repos", "Repos to search for PR Reviews"],
+  JIRA_STATUSES: [
+    "JIRA Status(es)",
+    "Only update JIRA issues with status matching following: (comma separated array; default = 'Code Review')",
+  ],
   URL_PATTERN_FOR_PAGE_ACTION: [
     "Page Filter",
     "Url regex to restrict the scope of this extension",
@@ -39,6 +43,7 @@ const configForm = (config) => {
     ${field("GITHUB_ACCOUNT")}
     ${field("GITHUB_TOKEN")}
     ${field("GITHUB_REPOS")}
+    ${field("JIRA_STATUSES")}
     
     <button class="cancel" type="cencel">Cancel</button>
     <button class="save" type="submit">Save</button>
