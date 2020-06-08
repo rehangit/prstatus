@@ -1,18 +1,37 @@
 console.log("content script global");
 
+function debounce(func, wait, immediate) {
+  var timeout;
+  return function () {
+    var context = this,
+      args = arguments;
+    var later = function () {
+      timeout = null;
+      if (!immediate) func.apply(context, args);
+    };
+    var callNow = immediate && !timeout;
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+    if (callNow) func.apply(context, args);
+  };
+}
+
+const throttle = (func, limit) => {
+  let inThrottle;
+  return function () {
+    const args = arguments;
+    const context = this;
+    if (!inThrottle) {
+      const tid = setTimeout(() => {
+        func.apply(context, args);
+        inThrottle = false;
+      }, limit);
+      inThrottle = true;
+    }
+  };
+};
+
 const injectPrStatus = async (config) => {
-  // const columnHeaders = [
-  //   ...document.querySelectorAll(".ghx-column-headers li.ghx-column"),
-  // ].map((col) => {
-  //   const id = col.attributes["data-id"].value;
-  //   const title = col.querySelector("h2").innerText;
-  //   return { id, title };
-  // });
-  // const issues = [...document.querySelectorAll(".ghx-issue")].map((n) => ({
-  //   jiraId: n.attributes["data-issue-key"].value,
-  //   issueId: n.attributes["data-issue-id"].value,
-  //   extraFieldsNode: n.querySelector(".ghx-extra-fields"),
-  // }));
   const boardId = window.location.search.match("rapidView=([0-9]+?)&")[1];
   const jql =
     config.JIRA_STATUSES &&
@@ -54,27 +73,69 @@ const injectPrStatus = async (config) => {
 //   fetch("https://api.github.com/repos/rehanahmad/Hello-World/pulls/1347", { method: "GET" /repos/:owner/:repo/pulls})
 // }
 
-window.addEventListener(
-  "load",
-  () => {
-    chrome.runtime.sendMessage({ action: "sendConfig" }, (config) => {
-      console.log("content script received config:", { config });
-      //      injectPrStatus(config);
-    });
-  },
-  false,
-);
-
 const refresh = () => {
-  chrome.runtime.sendMessage({ action: "sendConfig" }, (config) => {
-    console.log("content script received config:", config);
-    injectPrStatus(config);
+  return new Promise((resolve) => {
+    console.log("content script received event to refresh");
+    chrome.runtime.sendMessage({ action: "sendConfig" }, async (config) => {
+      console.log("content script received config for injection:", config);
+      await injectPrStatus(config).then(resolve);
+    });
   });
 };
 
-chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
+chrome.runtime.onMessage.addListener((request, sender) => {
   if (request == "refresh") {
     console.log("content script received message: refresh", { sender });
     refresh();
   }
 });
+
+// Callback function to execute when mutations are observed
+const observeCallback = function (mutationsList, observer) {
+  // Use traditional 'for loops' for IE 11
+  const event = {};
+  for (let { type } of mutationsList) {
+    if (type === "childList" || type === "attributes")
+      event[type] = +(event[type] || 0) + 1;
+  }
+  if (observer.refresh && !observer.pause) {
+    console.log("scheduling a refresh", event);
+    observer.refresh();
+  }
+};
+
+window.addEventListener(
+  "load",
+  (e) => {
+    refresh(e);
+    // Create an observer instance linked to the callback function
+    const observer = new MutationObserver(observeCallback);
+
+    // Start observing the target node for configured mutations
+    const targetNode = document.querySelector(".ghx-work");
+    observer.observe(targetNode, {
+      // attributes: true,
+      childList: true,
+      subtree: true,
+    });
+
+    const throttledRefresh = throttle(async () => {
+      observer.pause = true;
+      await refresh().then(() => {
+        observer.pause = false;
+      });
+    }, 1000);
+
+    observer.refresh = throttledRefresh;
+
+    targetNode.addEventListener("dragend", throttledRefresh, false);
+    targetNode.addEventListener("DOMAttrModified", throttledRefresh, false);
+    targetNode.addEventListener(
+      "loaDOMSubtreeModifiedd",
+      throttledRefresh,
+      false,
+    );
+    targetNode.addEventListener("mouseup", throttledRefresh, false);
+  },
+  false,
+);
