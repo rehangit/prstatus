@@ -59,13 +59,18 @@ chrome.pageAction.onClicked.addListener((...args) => {
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === "complete") {
-    console.log("in background chrome.tabs.onUpdated.addListener", {
+    console.log("In background chrome.tabs.onUpdated.addListener", {
       tabId,
       changeInfo,
       tab,
     });
     const { URL_PATTERN_FOR_PAGE_ACTION } = readConfig();
-    if (tab.url.match(URL_PATTERN_FOR_PAGE_ACTION))
+    if (tab.url.match(URL_PATTERN_FOR_PAGE_ACTION)) {
+      console.log(
+        "In background chrome.tabs.onUpdated.addListener sending message to tab",
+        tabId,
+      );
       chrome.tabs.sendMessage(tabId, "refresh");
+    }
   }
 });

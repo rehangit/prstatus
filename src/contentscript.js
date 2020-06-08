@@ -50,6 +50,10 @@ const injectPrStatus = async (config) => {
   });
 };
 
+// const getPRStatus = (config) => {
+//   fetch("https://api.github.com/repos/rehanahmad/Hello-World/pulls/1347", { method: "GET" /repos/:owner/:repo/pulls})
+// }
+
 window.addEventListener(
   "load",
   () => {
@@ -61,11 +65,16 @@ window.addEventListener(
   false,
 );
 
+const refresh = () => {
+  chrome.runtime.sendMessage({ action: "sendConfig" }, (config) => {
+    console.log("content script received config:", config);
+    injectPrStatus(config);
+  });
+};
+
 chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
   if (request == "refresh") {
-    chrome.runtime.sendMessage({ action: "sendConfig" }, (config) => {
-      console.log("content script received config:", config);
-      injectPrStatus(config);
-    });
+    console.log("content script received message: refresh", { sender });
+    refresh();
   }
 });
