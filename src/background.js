@@ -1,7 +1,7 @@
 const defaultConfig = {
   GITHUB_ACCOUNT: "",
   GITHUB_TOKEN: "",
-  GITHUB_REPOS: [],
+  GITHUB_REPOS: "",
   JIRA_STATUSES: "Code Review",
   URL_PATTERN_FOR_PAGE_ACTION: ".+.atlassian.net/secure/RapidBoard.jspa",
 };
@@ -21,12 +21,15 @@ const resetPageActionRules = ({ urlMatches }) => {
   });
 };
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener(details => {
   const localStorageConfig = localStorage.getItem("PrStatusConfig") || "{}";
   const config = { ...defaultConfig, ...JSON.parse(localStorageConfig) };
   localStorage.setItem("PrStatusConfig", JSON.stringify(config));
   console.log("PR Status background", config);
   resetPageActionRules({ urlMatches: config.URL_PATTERN_FOR_PAGE_ACTION });
+  if (details.reason === "install") {
+    chrome.tabs.create({ url: "options/index.html" });
+  }
 });
 
 const readConfig = () => {

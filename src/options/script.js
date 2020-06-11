@@ -15,34 +15,37 @@ const description = {
   ],
 };
 
-const configField = (config) => (key) => {
+const configField = config => key => {
   const [legend, desc] = description[key];
   const value = config[key];
   return `
   <fieldset>
     <legend>${legend}</legend>
       <label for="${key}">${desc}</label>
-      <input name="${key}" type="text" class="field-value" value="${value}">
+      <input name="${key}" type="text" class="field-value" style="font-family: monospace; font-size: 11pt;" value="${value}">
     </div>
   </fieldset>
   `;
 };
 
-const reposList = (config) => `
-  <fieldset>
-    <legend>GitHub Repos</legend>
-      <label for="repos"></label>
-      <input name="repos" type="text" class="field-value" value="${value}">
-    </div>
-  </fieldset>
-`;
+const reposList = ({ GITHUB_REPOS }) => {
+  const [legend, desc] = description.GITHUB_REPOS;
+  return `
+    <fieldset>
+      <legend>${legend}</legend>
+        <label for="GITHUB_REPOS">${desc}</label>
+        <textarea name="GITHUB_REPOS" rows="3" class="field-value" spellcheck="false" style="resize: vertical;min-height:100px;hyphens:none;">${GITHUB_REPOS}</textarea>
+      </div>
+    </fieldset>
+  `;
+};
 
-const configForm = (config) => {
+const configForm = config => {
   const field = configField(config);
   return `
     ${field("GITHUB_ACCOUNT")}
     ${field("GITHUB_TOKEN")}
-    ${field("GITHUB_REPOS")}
+    ${reposList(config)}
     ${field("JIRA_STATUSES")}
     
     <button class="cancel" type="cencel">Cancel</button>
@@ -50,14 +53,14 @@ const configForm = (config) => {
   `;
 };
 
-const populateConfig = (config) => {
+const populateConfig = config => {
   console.log("page action received config from background", { config });
   document.querySelector("#config form").innerHTML = configForm(config);
 };
 
 window.addEventListener("load", () => {
   let currentConfig;
-  chrome.runtime.sendMessage({ action: "sendConfig" }, (config) => {
+  chrome.runtime.sendMessage({ action: "sendConfig" }, config => {
     currentConfig = config;
     populateConfig(config);
   });
