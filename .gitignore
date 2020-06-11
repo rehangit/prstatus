@@ -4,3 +4,5 @@ dist
 .cache
 .vscode
 .env
+.pem
+.crx

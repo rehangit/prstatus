@@ -4,10 +4,8 @@
   "version": "0.0.1",
   "background": { "scripts": ["background.js"], "persistent": false },
   "permissions": [
-    "background",
     "tabs",
     "declarativeContent",
-    "activeTab",
     "https://*.atlassian.net/*"
   ],
   "page_action": { 
