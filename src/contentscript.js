@@ -2,21 +2,53 @@ let log = console.log;
 
 log("content script global");
 const THROTTLE_RATE = 500;
-let globalConfig;
+let globalConfig = {};
 
-const updateConfig = () =>
-  new Promise(resolve => {
-    chrome.runtime.sendMessage({ action: "sendConfig" }, config => {
-      globalConfig = config;
-      if (!config.ENABLE_LOG) {
-        console.log("Logs disabled. config.ENABLE_LOG=", config.ENABLE_LOG);
-        log = function () {};
-      } else {
-        log = console.log;
-      }
-      resolve(config);
-    });
-  });
+const JIRA_BOARD_ID = window.location.search.match("rapidView=([0-9]+?)&")[1];
+const JIRA_BASE_URL = `/rest/agile/1.0/board/${JIRA_BOARD_ID}`;
+
+const updateConfig = async () => {
+  const config = await new Promise(resolve =>
+    chrome.runtime.sendMessage({ action: "sendConfig" }, resolve),
+  );
+
+  if (!config.ENABLE_LOG) {
+    console.log("Logs disabled. config.ENABLE_LOG=", config.ENABLE_LOG);
+    log = function () {};
+  } else {
+    log = console.log;
+  }
+
+  globalConfig = config;
+
+  const jiraBoardColumns = await fetch(`${JIRA_BASE_URL}/configuration`)
+    .then(r => r.json())
+    .then(boardConfig => boardConfig.columnConfig.columns);
+  log({ jiraBoardColumns });
+
+  const activeCols = config.JIRA_COLUMNS.length
+    ? jiraBoardColumns.filter(c =>
+        config.JIRA_COLUMNS.toLowerCase().includes(c.name.toLowerCase()),
+      )
+    : jiraBoardColumns;
+
+  const activeStatuses = await Promise.all(
+    activeCols
+      .map(c => c.statuses.map(s => s.id))
+      .flat()
+      .map(id =>
+        fetch(`/rest/api/2/status/${id}`)
+          .then(r => r.json())
+          .then(s => s.name),
+      ),
+  );
+  log({ activeCols, activeStatuses });
+
+  globalConfig.JIRA_REFRESH_URL = `${JIRA_BASE_URL}/issue?jql=${activeStatuses
+    .map(s => `status="${s.trim()}"`)
+    .join(" OR ")}`;
+  log({ globalConfig });
+};
 
 const reviewStateIcon = {
   APPROVED: "icons/approved.png",
@@ -89,11 +121,13 @@ const getPRStatus = async config => {
     repos.map(repo =>
       fetch(`${baseUrl}/${repo}/pulls`, { headers }).then(res => res.json()),
     ),
-  ).then(p => p.flat());
+  )
+    .then(p => p.flat())
+    .catch(console.error);
 
   log({ prs });
 
-  const reviews = await Promise.all(
+  const prsWithReviews = await Promise.all(
     prs.map(pr =>
       fetch(`${pr.url}/reviews`, { headers })
         .then(res => res.json())
@@ -101,7 +135,6 @@ const getPRStatus = async config => {
           ...pr,
           reviews: uniqBy(
             reviews
-              // .filter(r => r.user.id !== pr.user.id || r.state==='COMMENTED')
               .reverse()
               .sort(
                 (a, b) => reviewSortOrder[a.state] - reviewSortOrder[b.state],
@@ -112,69 +145,67 @@ const getPRStatus = async config => {
     ),
   );
 
-  log({ reviews });
-  return reviews;
+  log({ prsWithReviews });
+  return prsWithReviews;
 };
 
-const injectPrStatus = async config => {
-  log({ config });
+const refresh = async () => {
+  const config = globalConfig;
+  log("pr status refresh", { config });
 
-  const boardId = window.location.search.match("rapidView=([0-9]+?)&")[1];
-  const jql =
-    config.JIRA_STATUSES &&
-    config.JIRA_STATUSES.trim()
-      .split(",")
-      .map(s => `status="${s.trim()}"`)
-      .join(" OR ");
-  const fetchUrl = `/rest/agile/1.0/board/${boardId}/issue?jql=${jql}`;
-  log({ jql, fetchUrl });
+  const getIssues = () =>
+    fetch(config.JIRA_REFRESH_URL)
+      .then(r => r.json())
+      .then(d => d.issues.map(({ key, id }) => ({ key, id })));
 
-  const issues = await fetch(fetchUrl)
-    .then(r => r.json())
-    .then(d => d.issues.map(({ key, id }) => ({ key, id })))
-    .catch(console.error);
+  const [prsWithReviews, issues] = await Promise.all([
+    getPRStatus(config),
+    getIssues(),
+  ]).catch(console.error);
 
-  const allPrs = await getPRStatus(config);
+  prsWithReviews &&
+    issues &&
+    issues.forEach(issue => {
+      const prs = prsWithReviews.filter(
+        pr =>
+          pr.title.toLowerCase().includes(issue.key.toLowerCase()) ||
+          pr.head.ref.toLowerCase().includes(issue.key.toLowerCase()),
+      );
+      if (prs.length === 0) return;
 
-  issues.forEach(i => {
-    const prs = allPrs.filter(p =>
-      p.title.toLowerCase().includes(i.key.toLowerCase()),
-    );
-    if (prs.length === 0) return;
+      const extraFieldsNode = document.querySelector(
+        `.ghx-issue[data-issue-id='${issue.id}'] .ghx-extra-fields`,
+      );
+      if (!extraFieldsNode) return;
 
-    const extraFieldsNode = document.querySelector(
-      `.ghx-issue[data-issue-id='${i.id}'] .ghx-extra-fields`,
-    );
-    if (!extraFieldsNode) return;
+      const prStatusRows = prs.map(pr => {
+        const reviews = pr.reviews || [];
 
-    const prStatusRows = prs.map(pr => {
-      const reviews = pr.reviews || [];
-
-      return `
-        <div class="ghx-row prstatus-row" >
+        return `
+        <div class="prstatus-row" style="overflow-y:visible;">
           <span>
             <a 
               href="${pr.html_url}" 
               target="_blank"
               onclick="arguments[0].stopPropagation()"
               title="${pr.title}"
-              style="vertical-align:top; padding:2px 8px 2px 4px; font-weight:bold; border-radius:4px; color: white; background:${
+              style="padding:1px 4px 1px 2px; border-radius:2px; text-decoration: none; color: white; background:${
                 pr.state === "open"
                   ? "#2cbf4e"
                   : pr.state === "merged"
                   ? "#6f42c1"
                   : "gray"
               }"
-            ><img width="18px" height="18px" style="vertical-align: top" src="${chrome.runtime.getURL(
+            ><img style="vertical-align: text-top; margin-right:2px;" src="${chrome.runtime.getURL(
               `icons/${pr.state}.png`,
-            )}"> ${pr.state.toUpperCase()}</a>
+            )}">${pr.state.toUpperCase()}</a>
           </span>
           <span style="float:right">
             ${reviews
               .map(
                 r => `
-                  <span title="${r.user.login}" style="cursor:auto">
-                    <img width="18px" height="18px" src="${chrome.runtime.getURL(
+                  <span title="${r.user.login}" style="cursor:auto;" >
+                    <img width="16px" height="16px" src="${chrome.runtime.getURL(
                       reviewStateIcon[r.state],
                     )}" >
                   </span>  
@@ -184,15 +215,13 @@ const injectPrStatus = async config => {
           </span>
         </div>
       `;
+      });
+      const elems = extraFieldsNode.querySelectorAll(".prstatus-row");
+      if (elems && elems.length) [...elems].forEach(elem => elem.remove());
+
+      extraFieldsNode.insertAdjacentHTML("beforeend", prStatusRows.join(""));
     });
-    const elems = extraFieldsNode.querySelectorAll(".prstatus-row");
-    if (elems && elems.length) [...elems].forEach(elem => elem.remove());
-
-    extraFieldsNode.insertAdjacentHTML("beforeend", prStatusRows.join(""));
-  });
 };
-
-const refresh = (config = globalConfig) => injectPrStatus(config);
 
 chrome.runtime.onMessage.addListener(async (request, sender) => {
   if (request == "refresh") {
@@ -202,16 +231,25 @@ chrome.runtime.onMessage.addListener(async (request, sender) => {
 });
 
 const observeCallback = async (mutationsList, observer) => {
-  const event = mutationsList.reduce((acc, { type }) => {
-    if (type === "childList" || type === "attributes")
-      acc[type] = +(acc[type] || 0) + 1;
+  const event = mutationsList.reduce((acc, mutation) => {
+    const { type } = mutation;
+    if (
+      (type === "childList" || type === "attributes") &&
+      mutation.target.querySelectorAll(".ghx-issue").length > 0
+    ) {
+      if (!acc[type]) acc[type] = [];
+      acc[type].push(mutation);
+    }
     return acc;
   }, {});
+
   log("observerCallback", event, observer);
+
   if (
     observer.refresh &&
     !observer.pause &&
-    (event.childList > 0 || event.attributes > 0)
+    ((event.childList && event.childList.length > 0) ||
+      (event.attributes && event.attributes.length > 0))
   ) {
     log("initiating a throttled refresh");
     await observer.refresh();
@@ -224,7 +262,7 @@ window.addEventListener("load", async e => {
   log("content script refreshed with config", globalConfig);
 
   const observer = new MutationObserver(observeCallback);
-  const targetNode = document.querySelector(".ghx-work");
+  const targetNode = document.querySelector("#ghx-work");
   observer.observe(targetNode, { childList: true, subtree: true });
 
   const throttledRefresh = throttle(async () => {
@@ -235,5 +273,5 @@ window.addEventListener("load", async e => {
   observer.refresh = throttledRefresh;
 
   targetNode.addEventListener("dragend", throttledRefresh, false);
-  targetNode.addEventListener("mouseup", throttledRefresh, false);
+  // targetNode.addEventListener("mouseup", throttledRefresh, false);
 });

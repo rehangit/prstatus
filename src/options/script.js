@@ -5,7 +5,7 @@ const description = {
     "Personal Access Token with 'repo' and 'user' scope",
   ],
   GITHUB_REPOS: ["Github Repos", "Repos to search for PR Reviews"],
-  JIRA_STATUSES: [
+  JIRA_COLUMNS: [
     "JIRA Status(es)",
     "Only update JIRA issues with status matching following: (comma separated array; default = 'Code Review')",
   ],
@@ -46,7 +46,7 @@ const configForm = config => {
     ${field("GITHUB_ACCOUNT")}
     ${field("GITHUB_TOKEN")}
     ${reposList(config)}
-    ${field("JIRA_STATUSES")}
+    ${field("JIRA_COLUMNS")}
     
     <button class="cancel" type="cencel">Cancel</button>
     <button class="save" type="submit">Save</button>
