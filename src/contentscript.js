@@ -109,28 +109,50 @@ const uniqBy = (arr, predicate) => {
   ];
 };
 
-const getPRStatus = async config => {
-  const { GITHUB_REPOS = "", GITHUB_ACCOUNT, GITHUB_TOKEN } = config;
-  const repos = GITHUB_REPOS.split(",").map(r => r.trim());
+const fetchCache = {};
+const cachedFetch = async (url, params) => {
+  if (fetchCache[url]) {
+    fetchCache[url].count = fetchCache[url].count + 1;
+    log(url, "Cached response count:", fetchCache[url].count);
+    return fetchCache[url].res;
+  }
+  const response = await fetch(url, params);
+  log(url, response);
+  for ([k, v] of response.headers.entries()) log(k, v);
+
+  const res = await response.json();
+  fetchCache[url] = { res, count: 0 };
+  setTimeout(() => {
+    fetchCache[url] = undefined;
+  }, 120000);
+  return res;
+};
+
+const getPrsWithReviews = async issueKey => {
+  const { GITHUB_REPOS = "", GITHUB_ACCOUNT, GITHUB_TOKEN } = globalConfig;
   const headers = { Authorization: `token ${GITHUB_TOKEN}` };
-  const baseUrl = `https://api.github.com/repos/${GITHUB_ACCOUNT}`;
+  const baseUrl = `https://api.github.com/search/issues?q=is:pr+org:${GITHUB_ACCOUNT}`;
 
-  log({ repos });
+  const fetchPrs = async url =>
+    cachedFetch(url, { headers })
+      .then(res => res.items)
+      .catch(err => {
+        console.warn("error occurred", err);
+        return [];
+      });
 
-  const prs = await Promise.all(
-    repos.map(repo =>
-      fetch(`${baseUrl}/${repo}/pulls`, { headers }).then(res => res.json()),
-    ),
-  )
-    .then(p => p.flat())
-    .catch(console.error);
+  const [prsTitle = [], prsBranch = []] = await Promise.all([
+    fetchPrs(`${baseUrl}+${issueKey}`),
+    fetchPrs(`${baseUrl}+head:${issueKey}`),
+  ]).catch(console.error);
+  log({ prsTitle, prsBranch });
 
+  const prs = uniqBy([...prsTitle, ...prsBranch].filter(Boolean), "id");
   log({ prs });
 
   const prsWithReviews = await Promise.all(
     prs.map(pr =>
-      fetch(`${pr.url}/reviews`, { headers })
-        .then(res => res.json())
+      cachedFetch(`${pr.pull_request.url}/reviews`, { headers })
         .then(reviews => ({
           ...pr,
           reviews: uniqBy(
@@ -141,7 +163,11 @@ const getPRStatus = async config => {
               ),
             r => r.user.id,
           ),
-        })),
+        }))
+        .catch(err => {
+          console.error(err);
+          return { ...pr, reviews: [] };
+        }),
     ),
   );
 
