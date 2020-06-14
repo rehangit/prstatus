@@ -13,7 +13,7 @@ const updateConfig = async () => {
   );
 
   if (!config.ENABLE_LOG) {
-    console.log("Logs disabled. config.ENABLE_LOG=", config.ENABLE_LOG);
+    console.log("Details logs disabled. config.ENABLE_LOG=", config.ENABLE_LOG);
     log = function () {};
   } else {
     log = console.log;
@@ -54,6 +54,21 @@ const reviewStateIcon = {
   APPROVED: "icons/approved.png",
   COMMENTED: "icons/commented.png",
   CHANGES_REQUESTED: "icons/change_requested.png",
+};
+
+const prAttr = (state, attr) => {
+  const attribs = {
+    open: {
+      color: "#2cbf4e",
+      imageUrl: chrome.runtime.getURL("icons/open.png"),
+    },
+    closed: {
+      color: "#6f42c1",
+      imageUrl: chrome.runtime.getURL("icons/closed.png"),
+    },
+    default: { color: "gray", imageUrl: "" },
+  };
+  return (attribs[state] || attribs.default)[attr];
 };
 
 const reviewSortOrder = {
@@ -175,58 +190,62 @@ const getPrsWithReviews = async issueKey => {
   return prsWithReviews;
 };
 
+String.prototype.toProperCase = function () {
+  return this.length ? this[0].toUpperCase() + this.slice(1) : "";
+};
+
+let refreshCache = 0;
 const refresh = async () => {
+  if (refreshCache) {
+    refreshCache++;
+    log("Refresh cache count:", refreshCache);
+    return;
+  }
+  refreshCache = 1;
+  setTimeout(() => {
+    const mayNeedRefresh = refreshCache > 1;
+    refreshCache = 0;
+    if (mayNeedRefresh) refresh();
+  }, 120000);
+
   const config = globalConfig;
   log("pr status refresh", { config });
 
-  const getIssues = () =>
-    fetch(config.JIRA_REFRESH_URL)
-      .then(r => r.json())
-      .then(d => d.issues.map(({ key, id }) => ({ key, id })));
+  const issues = await fetch(config.JIRA_REFRESH_URL)
+    .then(r => r.json())
+    .then(d => d.issues.map(({ key, id }) => ({ key, id })));
 
-  const [prsWithReviews, issues] = await Promise.all([
-    getPRStatus(config),
-    getIssues(),
-  ]).catch(console.error);
+  console.info("Total issues to refresh", issues.length);
 
-  prsWithReviews &&
+  return Promise.all(
     issues &&
-    issues.forEach(issue => {
-      const prs = prsWithReviews.filter(
-        pr =>
-          pr.title.toLowerCase().includes(issue.key.toLowerCase()) ||
-          pr.head.ref.toLowerCase().includes(issue.key.toLowerCase()),
-      );
-      if (prs.length === 0) return;
+      issues.map(async issue => {
+        const prs = await getPrsWithReviews(issue.key);
+        if (prs.length === 0) return;
 
-      const extraFieldsNode = document.querySelector(
-        `.ghx-issue[data-issue-id='${issue.id}'] .ghx-extra-fields`,
-      );
-      if (!extraFieldsNode) return;
+        const extraFieldsNode = document.querySelector(
+          `.ghx-issue[data-issue-id='${issue.id}'] .ghx-extra-fields`,
+        );
+        if (!extraFieldsNode) return;
 
-      const prStatusRows = prs.map(pr => {
-        const reviews = pr.reviews || [];
+        const prStatusRows = prs.map(pr => {
+          const reviews = pr.reviews || [];
+          const color = prAttr(pr.state, "color");
+          const imageUrl = prAttr(pr.state, "imageUrl");
 
-        return `
-        <div class="prstatus-row" style="overflow-y:visible;">
-          <span>
-            <a 
-              href="${pr.html_url}" 
+          return `
+        <div class="ghx-row prstatus-row" style="position:relative; max-width: 100%">
+            <a
+              href="${pr.html_url}"
               target="_blank"
               onclick="arguments[0].stopPropagation()"
               title="${pr.title}"
-              style="padding:1px 4px 1px 2px; border-radius:2px; text-decoration: none; color: white; background:${
-                pr.state === "open"
-                  ? "#2cbf4e"
-                  : pr.state === "merged"
-                  ? "#6f42c1"
-                  : "gray"
-              }"
-            ><img style="vertical-align: text-top; margin-right:2px;" src="${chrome.runtime.getURL(
-              `icons/${pr.state}.png`,
-            )}">${pr.state.toUpperCase()}</a>
-          </span>
-          <span style="float:right">
+              style="padding:1px 4px 1px 2px; border-radius:2px; text-decoration: none; color: white; background:${color}"
+            ><img style="vertical-align: text-top; margin-right:2px;" src="${imageUrl}">${pr.state.toProperCase()}</a>
+          <span style="overflow-text:ellipsis;">${
+            pr.repository_url.split("/").slice(-1)[0]
+          }</span>
+          <span style="position:absolute; right:0">
             ${reviews
               .map(
                 r => `
@@ -234,19 +253,20 @@ const refresh = async () => {
                     <img width="16px" height="16px" src="${chrome.runtime.getURL(
                       reviewStateIcon[r.state],
                     )}" >
-                  </span>  
+                  </span>
                   `,
               )
               .join("")}
           </span>
         </div>
       `;
-      });
-      const elems = extraFieldsNode.querySelectorAll(".prstatus-row");
-      if (elems && elems.length) [...elems].forEach(elem => elem.remove());
+        });
+        const elems = extraFieldsNode.querySelectorAll(".prstatus-row");
+        if (elems && elems.length) [...elems].forEach(elem => elem.remove());
 
-      extraFieldsNode.insertAdjacentHTML("beforeend", prStatusRows.join(""));
-    });
+        extraFieldsNode.insertAdjacentHTML("beforeend", prStatusRows.join(""));
+      }),
+  );
 };
 
 chrome.runtime.onMessage.addListener(async (request, sender) => {
@@ -258,10 +278,10 @@ chrome.runtime.onMessage.addListener(async (request, sender) => {
 
 const observeCallback = async (mutationsList, observer) => {
   const event = mutationsList.reduce((acc, mutation) => {
-    const { type } = mutation;
+    const { type, target } = mutation;
     if (
       (type === "childList" || type === "attributes") &&
-      mutation.target.querySelectorAll(".ghx-issue").length > 0
+      target.querySelector(".ghx-issue")
     ) {
       if (!acc[type]) acc[type] = [];
       acc[type].push(mutation);
@@ -269,16 +289,16 @@ const observeCallback = async (mutationsList, observer) => {
     return acc;
   }, {});
 
-  log("observerCallback", event, observer);
-
   if (
-    observer.refresh &&
-    !observer.pause &&
-    ((event.childList && event.childList.length > 0) ||
-      (event.attributes && event.attributes.length > 0))
+    (event.childList && event.childList.length >= 0) ||
+    (event.attributes && event.attributes.length >= 0)
   ) {
-    log("initiating a throttled refresh");
-    await observer.refresh();
+    log("observerCallback", event, observer);
+
+    if (observer.refresh && !observer.pause) {
+      log("initiating a throttled refresh");
+      await observer.refresh();
+    }
   }
 };
 
