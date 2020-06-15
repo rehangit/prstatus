@@ -59,14 +59,16 @@ const reviewStateIcon = {
 const prAttr = (state, attr) => {
   const attribs = {
     open: {
+      text: "Open",
       color: "#2cbf4e",
       imageUrl: chrome.runtime.getURL("icons/open.png"),
     },
     closed: {
+      text: "Merged",
       color: "#6f42c1",
       imageUrl: chrome.runtime.getURL("icons/closed.png"),
     },
-    default: { color: "gray", imageUrl: "" },
+    default: { text: state, color: "gray", imageUrl: "" },
   };
   return (attribs[state] || attribs.default)[attr];
 };
@@ -125,31 +127,40 @@ const uniqBy = (arr, predicate) => {
 };
 
 const fetchCache = {};
-const cachedFetch = async (url, params) => {
-  if (fetchCache[url]) {
+const cachedFetch = async (url, params, useCache) => {
+  if (
+    fetchCache[url] &&
+    fetchCache[url].res &&
+    (fetchCache[url].useCache || useCache)
+  ) {
     fetchCache[url].count = fetchCache[url].count + 1;
-    log(url, "Cached response count:", fetchCache[url].count);
+    log(url, "Cached used count:", fetchCache[url].count);
     return fetchCache[url].res;
   }
   const response = await fetch(url, params);
-  log(url, response);
-  for ([k, v] of response.headers.entries()) log(k, v);
+  const headers = {};
+  if (globalConfig.ENABLE_LOG) {
+    response.headers.forEach((value, key) => {
+      headers[key] = value;
+    });
+  }
+  log(url, response, headers);
 
   const res = await response.json();
-  fetchCache[url] = { res, count: 0 };
+  fetchCache[url] = { res, count: 0, useCache: true };
   setTimeout(() => {
-    fetchCache[url] = undefined;
+    fetchCache[url].useCache = false;
   }, 120000);
   return res;
 };
 
-const getPrsWithReviews = async issueKey => {
-  const { GITHUB_REPOS = "", GITHUB_ACCOUNT, GITHUB_TOKEN } = globalConfig;
+const getPrsWithReviews = async (issueKey, useCache) => {
+  const { GITHUB_ACCOUNT, GITHUB_TOKEN } = globalConfig;
   const headers = { Authorization: `token ${GITHUB_TOKEN}` };
   const baseUrl = `https://api.github.com/search/issues?q=is:pr+org:${GITHUB_ACCOUNT}`;
 
   const fetchPrs = async url =>
-    cachedFetch(url, { headers })
+    cachedFetch(url, { headers }, useCache)
       .then(res => res.items)
       .catch(err => {
         console.warn("error occurred", err);
@@ -157,7 +168,7 @@ const getPrsWithReviews = async issueKey => {
       });
 
   const [prsTitle = [], prsBranch = []] = await Promise.all([
-    fetchPrs(`${baseUrl}+${issueKey}`),
+    fetchPrs(`${baseUrl}+in:title+${issueKey}`),
     fetchPrs(`${baseUrl}+head:${issueKey}`),
   ]).catch(console.error);
   log({ prsTitle, prsBranch });
@@ -167,7 +178,11 @@ const getPrsWithReviews = async issueKey => {
 
   const prsWithReviews = await Promise.all(
     prs.map(pr =>
-      cachedFetch(`${pr.pull_request.url}/reviews`, { headers })
+      fetch(`${pr.pull_request.url}/reviews`, { headers })
+        .then(res => {
+          log(res);
+          return res.json();
+        })
         .then(reviews => ({
           ...pr,
           reviews: uniqBy(
@@ -190,23 +205,13 @@ const getPrsWithReviews = async issueKey => {
   return prsWithReviews;
 };
 
-String.prototype.toProperCase = function () {
-  return this.length ? this[0].toUpperCase() + this.slice(1) : "";
-};
-
-let refreshCache = 0;
-const refresh = async () => {
-  if (refreshCache) {
-    refreshCache++;
-    log("Refresh cache count:", refreshCache);
+let refreshing = false;
+const refresh = async useCache => {
+  if (refreshing) {
+    log("Alreading refreshing...");
     return;
   }
-  refreshCache = 1;
-  setTimeout(() => {
-    const mayNeedRefresh = refreshCache > 1;
-    refreshCache = 0;
-    if (mayNeedRefresh) refresh();
-  }, 120000);
+  refreshing = true;
 
   const config = globalConfig;
   log("pr status refresh", { config });
@@ -220,7 +225,7 @@ const refresh = async () => {
   return Promise.all(
     issues &&
       issues.map(async issue => {
-        const prs = await getPrsWithReviews(issue.key);
+        const prs = await getPrsWithReviews(issue.key, useCache);
         if (prs.length === 0) return;
 
         const extraFieldsNode = document.querySelector(
@@ -232,6 +237,7 @@ const refresh = async () => {
           const reviews = pr.reviews || [];
           const color = prAttr(pr.state, "color");
           const imageUrl = prAttr(pr.state, "imageUrl");
+          const text = prAttr(pr.state, "text");
 
           return `
         <div class="ghx-row prstatus-row" style="position:relative; max-width: 100%">
@@ -241,7 +247,7 @@ const refresh = async () => {
               onclick="arguments[0].stopPropagation()"
               title="${pr.title}"
               style="padding:1px 4px 1px 2px; border-radius:2px; text-decoration: none; color: white; background:${color}"
-            ><img style="vertical-align: text-top; margin-right:2px;" src="${imageUrl}">${pr.state.toProperCase()}</a>
+            ><img style="vertical-align: text-top; margin-right:2px;" src="${imageUrl}">${text}</a>
           <span style="overflow-text:ellipsis;">${
             pr.repository_url.split("/").slice(-1)[0]
           }</span>
@@ -266,7 +272,9 @@ const refresh = async () => {
 
         extraFieldsNode.insertAdjacentHTML("beforeend", prStatusRows.join(""));
       }),
-  );
+  ).then(() => {
+    refreshing = false;
+  });
 };
 
 chrome.runtime.onMessage.addListener(async (request, sender) => {
@@ -297,7 +305,7 @@ const observeCallback = async (mutationsList, observer) => {
 
     if (observer.refresh && !observer.pause) {
       log("initiating a throttled refresh");
-      await observer.refresh();
+      await observer.refresh(true);
     }
   }
 };
