@@ -5,8 +5,8 @@
   "main": "src/manifest.json",
   "scripts": {
     "build": "cross-env NODE_ENV=production parcel build src/manifest.json",
-    "zip:src": "rm prstatus.zip; zip -x \"**/.DS_Store\" -r prstatus.zip src",
-    "zip": "npm run build; zip -r prstatus.zip dist"
+    "zip:src": "rm prstatus.zip && zip -x \"**/.DS_Store\" -r prstatus.zip src",
+    "zip": "npm run build && zip -r prstatus.zip dist"
   },
   "author": "",
   "license": "ISC",
