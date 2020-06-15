@@ -4,10 +4,9 @@ const description = {
     "Github Token",
     "Personal Access Token with 'repo' and 'user' scope",
   ],
-  GITHUB_REPOS: ["Github Repos", "Repos to search for PR Reviews"],
   JIRA_COLUMNS: [
-    "JIRA Status(es)",
-    "Only update JIRA issues with status matching following: (comma separated array; default = 'Code Review')",
+    "JIRA Column(s)",
+    "Only update JIRA issues that appear in following columns: (comma separated array of column header names; default = 'Code Review')",
   ],
   URL_PATTERN_FOR_PAGE_ACTION: [
     "Page Filter",
@@ -28,26 +27,13 @@ const configField = config => key => {
   `;
 };
 
-const reposList = ({ GITHUB_REPOS }) => {
-  const [legend, desc] = description.GITHUB_REPOS;
-  return `
-    <fieldset>
-      <legend>${legend}</legend>
-        <label for="GITHUB_REPOS">${desc}</label>
-        <textarea name="GITHUB_REPOS" rows="3" class="field-value" spellcheck="false" style="resize: vertical;min-height:100px;hyphens:none;">${GITHUB_REPOS}</textarea>
-      </div>
-    </fieldset>
-  `;
-};
-
 const configForm = config => {
   const field = configField(config);
   return `
     ${field("GITHUB_ACCOUNT")}
     ${field("GITHUB_TOKEN")}
-    ${reposList(config)}
     ${field("JIRA_COLUMNS")}
-    
+
     <button class="cancel" type="cencel">Cancel</button>
     <button class="save" type="submit">Save</button>
   `;
