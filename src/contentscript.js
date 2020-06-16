@@ -1,3 +1,5 @@
+import { throttle, uniqBy } from "./utils";
+
 let log = console.log;
 
 log("content script global");
@@ -79,53 +81,6 @@ const reviewSortOrder = {
   COMMENTED: 3,
 };
 
-const debounce = (func, wait, immediate) => {
-  var timeout;
-  return function () {
-    var context = this,
-      args = arguments;
-    var later = function () {
-      timeout = null;
-      if (!immediate) func.apply(context, args);
-    };
-    var callNow = immediate && !timeout;
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-    if (callNow) func.apply(context, args);
-  };
-};
-
-const throttle = (func, limit) => {
-  let inThrottle;
-  return function () {
-    const args = arguments;
-    const context = this;
-    if (!inThrottle) {
-      const tid = setTimeout(() => {
-        func.apply(context, args);
-        inThrottle = false;
-      }, limit);
-      inThrottle = true;
-    }
-  };
-};
-
-const uniqBy = (arr, predicate) => {
-  const cb = typeof predicate === "function" ? predicate : o => o[predicate];
-
-  return [
-    ...arr
-      .reduce((map, item) => {
-        const key = item === null || item === undefined ? item : cb(item);
-
-        map.has(key) || map.set(key, item);
-
-        return map;
-      }, new Map())
-      .values(),
-  ];
-};
-
 const fetchCache = {};
 const cachedFetch = async (url, params, useCache) => {
   if (
@@ -137,7 +92,7 @@ const cachedFetch = async (url, params, useCache) => {
     log(url, "Cached used count:", fetchCache[url].count);
     return fetchCache[url].res;
   }
-  const response = await fetch(url, params);
+  const response = await fetch(url, { ...params, cache: "force-cache" });
   const headers = {};
   if (globalConfig.ENABLE_LOG) {
     response.headers.forEach((value, key) => {
@@ -159,17 +114,17 @@ const getPrsWithReviews = async (issueKey, useCache) => {
   const headers = { Authorization: `token ${GITHUB_TOKEN}` };
   const baseUrl = `https://api.github.com/search/issues?q=is:pr+org:${GITHUB_ACCOUNT}`;
 
-  const fetchPrs = async url =>
+  const searchPrs = async url =>
     cachedFetch(url, { headers }, useCache)
       .then(res => res.items)
       .catch(err => {
-        console.warn("error occurred", err);
+        console.warn("error occurred in fetchPrs", err);
         return [];
       });
 
   const [prsTitle = [], prsBranch = []] = await Promise.all([
-    fetchPrs(`${baseUrl}+in:title+${issueKey}`),
-    fetchPrs(`${baseUrl}+head:${issueKey}`),
+    searchPrs(`${baseUrl}+in:title+${issueKey}`),
+    searchPrs(`${baseUrl}+head:${issueKey}`),
   ]).catch(console.error);
   log({ prsTitle, prsBranch });
 
@@ -272,7 +227,7 @@ const refresh = async useCache => {
 
         extraFieldsNode.insertAdjacentHTML("beforeend", prStatusRows.join(""));
       }),
-  ).then(() => {
+  ).finally(() => {
     refreshing = false;
   });
 };
