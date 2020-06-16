@@ -2,7 +2,7 @@ const description = {
   GITHUB_ACCOUNT: ["Github Account", "GitHub main account name (org or user)"],
   GITHUB_TOKEN: [
     "Github Token",
-    "Personal Access Token with 'repo' and 'user' scope",
+    "<a href='https://github.com/settings/tokens' target='_blank'>Personal Access Token</a> with 'repo' and 'user' scope",
   ],
   JIRA_COLUMNS: [
     "JIRA Column(s)",
@@ -35,12 +35,12 @@ const configForm = config => {
     ${field("JIRA_COLUMNS")}
 
     <button class="cancel" type="cencel">Cancel</button>
-    <button class="save" type="submit">Save</button>
+    <button class="save" type="submit" default>Save</button>
   `;
 };
 
 const populateConfig = config => {
-  console.log("page action received config from background", { config });
+  console.log("options page received config from background", { config });
   document.querySelector("#config form").innerHTML = configForm(config);
 };
 
@@ -49,6 +49,10 @@ window.addEventListener("load", () => {
   chrome.runtime.sendMessage({ action: "sendConfig" }, config => {
     currentConfig = config;
     populateConfig(config);
+  });
+
+  document.querySelector("form").addEventListener("keydown", function (e) {
+    console.log(e);
   });
 
   document.querySelector("form").addEventListener("submit", function (e) {
