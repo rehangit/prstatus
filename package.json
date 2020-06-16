@@ -5,6 +5,7 @@
   "main": "src/manifest.json",
   "scripts": {
     "build": "cross-env NODE_ENV=production parcel build src/manifest.json",
+    "watch": "cross-env NODE_ENV=development parcel src/manifest.json --no-hmr",
     "zip:src": "rm prstatus.zip && zip -x \"**/.DS_Store\" -r prstatus.zip src",
     "zip": "npm run build && zip -r prstatus.zip dist"
   },
