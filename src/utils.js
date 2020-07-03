@@ -44,3 +44,12 @@ export const uniqBy = (arr, predicate) => {
       .values(),
   ];
 };
+
+export const getHeaders = res => {
+  const headers = {};
+  res.headers &&
+    res.headers.forEach((value, key) => {
+      headers[key] = value;
+    });
+  return headers;
+};

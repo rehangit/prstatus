@@ -1,7 +1,7 @@
 # PR Status
 ![PR Status](src/icons/icon-active.png "PR Status")
 
-A chrome extension to insert the GitHub PR Review status in the cards on a Jira boards.
+A chrome extension to insert the GitHub PR Review status in the cards on a Jira board.
 
 * Clean and simple design
 * Only shows relevant and important information 
@@ -20,9 +20,9 @@ It may help during a stand up session to quickly identify which tickets have the
 
 To configure the extension please provide your Github settings in the Options page:
 
-**Github Account Name:** User name or org name e.g. rehangit or getndazn
-**Gihub Token:** Generate a github personal access token from https://github.com/settings/tokens. This token should have repo and user scopes.
-**JIRA Column Headers:** List the column names separated by comma. Only Jira tickets from these columns are decorated with pr review status. Enter * for all columns. 
+- **Github Account Name:** User name or org name e.g. rehangit or getndazn
+- **Gihub Token:** Generate a github personal access token from https://github.com/settings/tokens. This token should have 'repo' scope.
+- **JIRA Column Headers:** List the column names separated by comma. Only Jira tickets from these columns are decorated with pr review status. 
 
 
 ## Features

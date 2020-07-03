@@ -2,7 +2,7 @@ const description = {
   GITHUB_ACCOUNT: ["Github Account", "GitHub main account name (org or user)"],
   GITHUB_TOKEN: [
     "Github Token",
-    "<a href='https://github.com/settings/tokens' target='_blank'>Personal Access Token</a> with 'repo' and 'user' scope",
+    "<a href='https://github.com/settings/tokens' target='_blank'>Personal Access Token</a> with 'repo' scope",
   ],
   JIRA_COLUMNS: [
     "JIRA Column(s)",

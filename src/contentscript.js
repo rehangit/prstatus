@@ -1,4 +1,5 @@
-import { throttle, uniqBy } from "./utils";
+import { throttle } from "./utils";
+import { getPrsWithReviews } from "./github";
 
 let log = console.log;
 
@@ -28,11 +29,10 @@ const updateConfig = async () => {
     .then(boardConfig => boardConfig.columnConfig.columns);
   log({ jiraBoardColumns });
 
-  const activeCols = config.JIRA_COLUMNS.length
-    ? jiraBoardColumns.filter(c =>
-        config.JIRA_COLUMNS.toLowerCase().includes(c.name.toLowerCase()),
-      )
-    : jiraBoardColumns;
+  const configCols = config.JIRA_COLUMNS.trim().toLowerCase();
+  const activeCols = jiraBoardColumns.filter(c =>
+    configCols.toLowerCase().includes(c.name.toLowerCase()),
+  );
 
   const activeStatuses = await Promise.all(
     activeCols
@@ -44,6 +44,8 @@ const updateConfig = async () => {
           .then(s => s.name),
       ),
   );
+
+  if (activeStatuses.length === 0) activeStatuses.push("Code Review");
   log({ activeCols, activeStatuses });
 
   globalConfig.JIRA_REFRESH_URL = `${JIRA_BASE_URL}/issue?jql=${activeStatuses
@@ -75,91 +77,6 @@ const prAttr = (state, attr) => {
   return (attribs[state] || attribs.default)[attr];
 };
 
-const reviewSortOrder = {
-  APPROVED: 1,
-  CHANGES_REQUESTED: 2,
-  COMMENTED: 3,
-};
-
-const fetchCache = {};
-const cachedFetch = async (url, params, useCache) => {
-  if (
-    fetchCache[url] &&
-    fetchCache[url].res &&
-    (fetchCache[url].useCache || useCache)
-  ) {
-    fetchCache[url].count = fetchCache[url].count + 1;
-    log(url, "Cached used count:", fetchCache[url].count);
-    return fetchCache[url].res;
-  }
-  const response = await fetch(url, { ...params, cache: "force-cache" });
-  const headers = {};
-  if (globalConfig.ENABLE_LOG) {
-    response.headers.forEach((value, key) => {
-      headers[key] = value;
-    });
-  }
-  log(url, response, headers);
-
-  const res = await response.json();
-  fetchCache[url] = { res, count: 0, useCache: true };
-  setTimeout(() => {
-    fetchCache[url].useCache = false;
-  }, 120000);
-  return res;
-};
-
-const getPrsWithReviews = async (issueKey, useCache) => {
-  const { GITHUB_ACCOUNT, GITHUB_TOKEN } = globalConfig;
-  const headers = { Authorization: `token ${GITHUB_TOKEN}` };
-  const baseUrl = `https://api.github.com/search/issues?q=is:pr+org:${GITHUB_ACCOUNT}`;
-
-  const searchPrs = async url =>
-    cachedFetch(url, { headers }, useCache)
-      .then(res => res.items)
-      .catch(err => {
-        console.warn("error occurred in fetchPrs", err);
-        return [];
-      });
-
-  const [prsTitle = [], prsBranch = []] = await Promise.all([
-    searchPrs(`${baseUrl}+in:title+${issueKey}`),
-    searchPrs(`${baseUrl}+head:${issueKey}`),
-  ]).catch(console.error);
-  log({ prsTitle, prsBranch });
-
-  const prs = uniqBy([...prsTitle, ...prsBranch].filter(Boolean), "id");
-  log({ prs });
-
-  const prsWithReviews = await Promise.all(
-    prs.map(pr =>
-      fetch(`${pr.pull_request.url}/reviews`, { headers })
-        .then(res => {
-          log(res);
-          return res.json();
-        })
-        .then(reviews => ({
-          ...pr,
-          reviews: uniqBy(
-            reviews
-              .reverse()
-              .sort(
-                (a, b) => reviewSortOrder[a.state] - reviewSortOrder[b.state],
-              ),
-            r => r.user.id,
-          ),
-        }))
-        .catch(err => {
-          console.error(err);
-          return { ...pr, reviews: [] };
-        }),
-    ),
-  );
-
-  log({ prsWithReviews });
-  return prsWithReviews;
-};
-
 let refreshing = false;
 const refresh = async useCache => {
   if (refreshing) {
@@ -171,31 +88,29 @@ const refresh = async useCache => {
   const config = globalConfig;
   log("pr status refresh", { config });
 
-  const issues = await fetch(config.JIRA_REFRESH_URL)
+  return fetch(config.JIRA_REFRESH_URL)
     .then(r => r.json())
-    .then(d => d.issues.map(({ key, id }) => ({ key, id })));
+    .then(({ issues }) => {
+      console.info("Total issues to refresh", issues.length);
 
-  console.info("Total issues to refresh", issues.length);
+      return Promise.all(
+        issues.map(async issue => {
+          const prs = await getPrsWithReviews(issue.key, useCache);
+          if (prs.length === 0) return;
 
-  return Promise.all(
-    issues &&
-      issues.map(async issue => {
-        const prs = await getPrsWithReviews(issue.key, useCache);
-        if (prs.length === 0) return;
+          const extraFieldsNode = document.querySelector(
+            `.ghx-issue[data-issue-id='${issue.id}'] .ghx-extra-fields`,
+          );
+          if (!extraFieldsNode) return;
 
-        const extraFieldsNode = document.querySelector(
-          `.ghx-issue[data-issue-id='${issue.id}'] .ghx-extra-fields`,
-        );
-        if (!extraFieldsNode) return;
+          const prStatusRows = prs.map(pr => {
+            const reviews = pr.reviews || [];
+            const color = prAttr(pr.state, "color");
+            const imageUrl = prAttr(pr.state, "imageUrl");
+            const text = prAttr(pr.state, "text");
 
-        const prStatusRows = prs.map(pr => {
-          const reviews = pr.reviews || [];
-          const color = prAttr(pr.state, "color");
-          const imageUrl = prAttr(pr.state, "imageUrl");
-          const text = prAttr(pr.state, "text");
-
-          return `
-        <div class="ghx-row prstatus-row" style="position:relative; max-width: 100%">
+            return `
+        <div class="ghx-row prstatus-row" style="position:relative; max-width: 100%; margin:2px 0; max-height: 24px;">
             <a
               href="${pr.html_url}"
               target="_blank"
@@ -221,15 +136,21 @@ const refresh = async useCache => {
           </span>
         </div>
       `;
-        });
-        const elems = extraFieldsNode.querySelectorAll(".prstatus-row");
-        if (elems && elems.length) [...elems].forEach(elem => elem.remove());
+          });
+          const elems = extraFieldsNode.querySelectorAll(".prstatus-row");
+          if (elems && elems.length) [...elems].forEach(elem => elem.remove());
 
-        extraFieldsNode.insertAdjacentHTML("beforeend", prStatusRows.join(""));
-      }),
-  ).finally(() => {
-    refreshing = false;
-  });
+          extraFieldsNode.insertAdjacentHTML(
+            "beforeend",
+            prStatusRows.join(""),
+          );
+        }),
+      );
+    })
+    .finally(() => {
+      log("Refreshing finally completed");
+      refreshing = false;
+    });
 };
 
 chrome.runtime.onMessage.addListener(async (request, sender) => {

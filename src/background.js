@@ -6,27 +6,11 @@ const defaultConfig = {
   ENABLE_LOG: false,
 };
 
-const resetPageActionRules = ({ urlMatches }) => {
-  chrome.declarativeContent.onPageChanged.removeRules(undefined, () => {
-    chrome.declarativeContent.onPageChanged.addRules([
-      {
-        conditions: [
-          new chrome.declarativeContent.PageStateMatcher({
-            pageUrl: { urlMatches },
-          }),
-        ],
-        actions: [new chrome.declarativeContent.ShowPageAction()],
-      },
-    ]);
-  });
-};
-
 chrome.runtime.onInstalled.addListener(details => {
   const localStorageConfig = localStorage.getItem("PrStatusConfig") || "{}";
   const config = { ...defaultConfig, ...JSON.parse(localStorageConfig) };
   localStorage.setItem("PrStatusConfig", JSON.stringify(config));
   console.log("PR Status background", config);
-  resetPageActionRules({ urlMatches: config.URL_PATTERN_FOR_PAGE_ACTION });
   if (details.reason === "install") {
     chrome.tabs.create({ url: "options/index.html" });
   }
