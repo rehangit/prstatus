@@ -2,11 +2,12 @@ import { throttle, uniqBy } from "./utils";
 
 let log = console.log;
 
-log("content script global");
+log("prstatus: content script global");
 const THROTTLE_RATE = 500;
 let globalConfig = {};
 
-const JIRA_BOARD_ID = window.location.search.match("rapidView=([0-9]+?)&")[1];
+const JIRA_BOARD_ID = window.location.search.match("rapidView=([0-9]+)")[1];
+
 const JIRA_BASE_URL = `/rest/agile/1.0/board/${JIRA_BOARD_ID}`;
 
 const updateConfig = async () => {
@@ -18,7 +19,7 @@ const updateConfig = async () => {
     console.log("Details logs disabled. config.ENABLE_LOG=", config.ENABLE_LOG);
     log = function () {};
   } else {
-    log = console.log;
+    log = (...args) => console.log("prstatus:", ...args);
   }
 
   globalConfig = config;
@@ -44,6 +45,12 @@ const updateConfig = async () => {
           .then(s => s.name),
       ),
   );
+
+  if (!activeStatuses.length) {
+    console.error("PR STATUS: No column found on this board matching config!");
+    activeStatuses.push("Code Review");
+  }
+
   log({ activeCols, activeStatuses });
 
   globalConfig.JIRA_REFRESH_URL = `${JIRA_BASE_URL}/issue?jql=${activeStatuses
@@ -195,7 +202,7 @@ const refresh = async useCache => {
           const text = prAttr(pr.state, "text");
 
           return `
-        <div class="ghx-row prstatus-row" style="position:relative; max-width: 100%">
+        <div class="ghx-row prstatus-row" style="position:relative; max-width: 100%; line-height:1.65em; max-height:1.65em;">
             <a
               href="${pr.html_url}"
               target="_blank"
@@ -208,15 +215,18 @@ const refresh = async useCache => {
           }</span>
           <span style="position:absolute; right:0">
             ${reviews
-              .map(
-                r => `
+              .map(r => {
+                return (
+                  reviewStateIcon[r.state] &&
+                  `
                   <span title="${r.user.login}" style="cursor:auto;" >
                     <img width="16px" height="16px" src="${chrome.runtime.getURL(
                       reviewStateIcon[r.state],
                     )}" >
                   </span>
-                  `,
-              )
+                  `
+                );
+              })
               .join("")}
           </span>
         </div>
@@ -265,22 +275,26 @@ const observeCallback = async (mutationsList, observer) => {
   }
 };
 
-window.addEventListener("load", async e => {
-  log("content script load");
-  await updateConfig().then(refresh);
-  log("content script refreshed with config", globalConfig);
+if (JIRA_BOARD_ID && JIRA_BOARD_ID.length)
+  window.addEventListener("load", async e => {
+    log("content script load");
+    await updateConfig().then(refresh);
+    log("content script refreshed with config", globalConfig);
 
-  const observer = new MutationObserver(observeCallback);
-  const targetNode = document.querySelector("#ghx-work");
-  observer.observe(targetNode, { childList: true, subtree: true });
+    const targetNode = document.querySelector("#ghx-work");
+    if (targetNode) {
+      const observer = new MutationObserver(observeCallback);
+      observer.observe(targetNode, { childList: true, subtree: true });
 
-  const throttledRefresh = throttle(async () => {
-    observer.pause = true;
-    await refresh();
-    observer.pause = false;
-  }, THROTTLE_RATE);
-  observer.refresh = throttledRefresh;
+      const throttledRefresh = throttle(async () => {
+        observer.pause = true;
+        await refresh();
+        observer.pause = false;
+      }, THROTTLE_RATE);
 
-  targetNode.addEventListener("dragend", throttledRefresh, false);
-  // targetNode.addEventListener("mouseup", throttledRefresh, false);
-});
+      observer.refresh = throttledRefresh;
+      targetNode.addEventListener("dragend", throttledRefresh, false);
+    }
+
+    // targetNode.addEventListener("mouseup", throttledRefresh, false);
+  });
