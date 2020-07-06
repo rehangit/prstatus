@@ -178,9 +178,16 @@ const refresh = async useCache => {
   const config = globalConfig;
   log("pr status refresh", { config });
 
-  const issues = await fetch(config.JIRA_REFRESH_URL)
+  const issuesOnPage = Array.from(
+    document.querySelectorAll("[data-issue-key]"),
+  ).map(k => k.dataset.issueKey);
+
+  const issuesMatchingStatus = await fetch(config.JIRA_REFRESH_URL)
     .then(r => r.json())
     .then(d => d.issues.map(({ key, id }) => ({ key, id })));
+
+  const issues = issuesMatchingStatus.filter(i => issuesOnPage.includes(i.key));
+  log({ issuesOnPage, issuesMatchingStatus, issues });
 
   console.info("Total issues to refresh", issues.length);
 
