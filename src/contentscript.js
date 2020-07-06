@@ -210,10 +210,21 @@ const refresh = async useCache => {
         const prs = await getPrsWithReviews(issue.key, useCache);
         if (prs.length === 0) return;
 
-        const extraFieldsNode = document.querySelector(
-          `.ghx-issue[data-issue-id='${issue.id}'] .ghx-extra-fields`,
+        const issueNode = document.querySelector(
+          `.ghx-issue[data-issue-id='${issue.id}']`,
         );
-        if (!extraFieldsNode) return;
+        let extraFieldsNode = issueNode.querySelector(".ghx-extra-fields");
+        if (!extraFieldsNode) {
+          log("No extra fields node to inject pr status");
+          const lastSection = issueNode.querySelectorAll(
+            "section:last-of-type",
+          )[0];
+          lastSection.insertAdjacentHTML(
+            "beforebegin",
+            "<section class='ghx-extra-fields'></section>",
+          );
+          extraFieldsNode = issueNode.querySelector(".ghx-extra-fields");
+        }
 
         const prStatusRows = prs.map(pr => {
           const reviews = pr.reviews || [];
@@ -224,13 +235,13 @@ const refresh = async useCache => {
 
           return `
         <div class="ghx-row prstatus-row" style="position:relative; max-width: 100%; line-height:1.65em; max-height:1.65em;">
-            <a
-              href="${pr.html_url}"
-              target="_blank"
-              onclick="arguments[0].stopPropagation()"
-              title="${pr.title}"
-              style="padding:1px 4px 1px 2px; border-radius:2px; text-decoration: none; color: white; background:${color}"
-            ><img style="vertical-align: text-top; margin-right:2px;" src="${imageUrl}">${text}</a>
+          <a
+            href="${pr.html_url}"
+            target="_blank"
+            onclick="arguments[0].stopPropagation()"
+            title="${pr.title}"
+            style="padding:1px 4px 1px 2px; border-radius:2px; text-decoration: none; color: white; background:${color}"
+          ><img style="vertical-align: text-top; margin-right:2px;" src="${imageUrl}">${text}</a>
           <span style="overflow-text:ellipsis;">${
             pr.repository_url.split("/").slice(-1)[0]
           }</span>
