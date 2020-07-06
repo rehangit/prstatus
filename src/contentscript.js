@@ -55,7 +55,7 @@ const updateConfig = async () => {
 
   globalConfig.JIRA_REFRESH_URL = `${JIRA_BASE_URL}/issue?jql=${activeStatuses
     .map(s => `status="${s.trim()}"`)
-    .join(" OR ")}`;
+    .join(" OR ")} order by id desc`;
   log({ globalConfig });
 };
 
