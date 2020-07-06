@@ -69,12 +69,17 @@ const prAttr = (state, attr) => {
   const attribs = {
     open: {
       text: "Open",
-      color: "#2cbf4e",
+      color: "#28a745",
       imageUrl: chrome.runtime.getURL("icons/open.png"),
     },
-    closed: {
+    merged: {
       text: "Merged",
       color: "#6f42c1",
+      imageUrl: chrome.runtime.getURL("icons/merged.png"),
+    },
+    closed: {
+      text: "Closed",
+      color: "#d73a49",
       imageUrl: chrome.runtime.getURL("icons/closed.png"),
     },
     default: { text: state, color: "gray", imageUrl: "" },
@@ -138,29 +143,37 @@ const getPrsWithReviews = async (issueKey, useCache) => {
   const prs = uniqBy([...prsTitle, ...prsBranch].filter(Boolean), "id");
   log({ prs });
 
+  const fetchDefault = (url, defaultResult) =>
+    fetch(url, { headers })
+      .then(res => {
+        log(res);
+        return res.json();
+      })
+      .catch(err => {
+        console.error(err);
+        return defaultResult;
+      });
+
   const prsWithReviews = await Promise.all(
-    prs.map(pr =>
-      fetch(`${pr.pull_request.url}/reviews`, { headers })
-        .then(res => {
-          log(res);
-          return res.json();
-        })
-        .then(reviews => ({
-          ...pr,
-          reviews: uniqBy(
-            reviews
-              .reverse()
-              .sort(
-                (a, b) => reviewSortOrder[a.state] - reviewSortOrder[b.state],
-              ),
-            r => r.user.id,
-          ),
-        }))
-        .catch(err => {
-          console.error(err);
-          return { ...pr, reviews: [] };
-        }),
-    ),
+    prs.map(async pr => {
+      const [reviews, merged] = await Promise.all([
+        fetchDefault(`${pr.pull_request.url}/reviews`, []),
+        fetchDefault(`${pr.pull_request.url}`, false).then(res => res.merged),
+      ]);
+
+      return {
+        ...pr,
+        merged,
+        reviews: uniqBy(
+          reviews
+            .reverse()
+            .sort(
+              (a, b) => reviewSortOrder[a.state] - reviewSortOrder[b.state],
+            ),
+          r => r.user.id,
+        ),
+      };
+    }),
   );
 
   log({ prsWithReviews });
@@ -204,9 +217,10 @@ const refresh = async useCache => {
 
         const prStatusRows = prs.map(pr => {
           const reviews = pr.reviews || [];
-          const color = prAttr(pr.state, "color");
-          const imageUrl = prAttr(pr.state, "imageUrl");
-          const text = prAttr(pr.state, "text");
+          const status = pr.merged ? "merged" : pr.state;
+          const color = prAttr(status, "color");
+          const imageUrl = prAttr(status, "imageUrl");
+          const text = prAttr(status, "text");
 
           return `
         <div class="ghx-row prstatus-row" style="position:relative; max-width: 100%; line-height:1.65em; max-height:1.65em;">
