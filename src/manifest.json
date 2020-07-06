@@ -1,7 +1,7 @@
 {
   "name": "PR Status",
-  "description": "Inject PR Review Approval status in Jira card",
-  "version": "0.1.2",
+  "description": "Show Github PR Review Approval status in the cards on a Jira board",
+  "version": "0.1.3",
   "background": { "scripts": ["background.js"], "persistent": false },
   "permissions": ["tabs", "declarativeContent", "https://*.atlassian.net/*"],
   "page_action": {
