@@ -20,9 +20,8 @@ const configField = config => key => {
   return `
   <fieldset>
     <legend>${legend}</legend>
-      <label for="${key}">${desc}</label>
-      <input name="${key}" type="text" class="field-value" style="font-family: monospace; font-size: 11pt;" value="${value}">
-    </div>
+    <label for="${key}">${desc}</label>
+    <input name="${key}" type="text" class="field-value" style="font-family: monospace; font-size: 11pt;" value="${value}">
   </fieldset>
   `;
 };
@@ -33,6 +32,14 @@ const configForm = config => {
     ${field("GITHUB_ACCOUNT")}
     ${field("GITHUB_TOKEN")}
     ${field("JIRA_COLUMNS")}
+
+    <fieldset>
+      <legend>Advanced</legend>
+      <input type="checkbox" name="ENABLE_LOG"  ${
+        config.ENABLE_LOG ? "checked" : ""
+      } value=true >
+      <label for="ENABLE_LOG">Enable logs</label>
+    </fieldset>
 
     <button class="cancel" type="cencel">Cancel</button>
     <button class="save" type="submit" default>Save</button>
@@ -57,17 +64,17 @@ window.addEventListener("load", () => {
 
   document.querySelector("form").addEventListener("submit", function (e) {
     if (e.submitter.className === "save") {
-      const config = [...e.target.querySelectorAll(".field-value")].reduce(
-        (acc, f) => {
-          const { value } = f;
-          const key = f.attributes.name.value;
-          if (value && acc[key] !== value) {
-            acc[key] = value;
-          }
-          return acc;
-        },
-        currentConfig,
-      );
+      const config = {};
+      config.GITHUB_ACCOUNT = e.target.querySelector(
+        "[name='GITHUB_ACCOUNT']",
+      ).value;
+      config.GITHUB_TOKEN = e.target.querySelector(
+        "[name='GITHUB_TOKEN']",
+      ).value;
+      config.JIRA_COLUMNS = e.target.querySelector(
+        "[name='JIRA_COLUMNS']",
+      ).value;
+      config.ENABLE_LOG = e.target.querySelector("[name='ENABLE_LOG']").checked;
       console.log("Form submitted", config);
       chrome.runtime.sendMessage({ action: "saveConfig", config });
     }
