@@ -15,11 +15,11 @@ const updateConfig = async () => {
     chrome.runtime.sendMessage({ action: "sendConfig" }, resolve),
   );
 
-  if (!config.ENABLE_LOG) {
-    console.log("Details logs disabled. config.ENABLE_LOG=", config.ENABLE_LOG);
-    log = function () {};
-  } else {
+  if (config.ENABLE_LOG || config.ENABLE_LOG === "true") {
     log = (...args) => console.log("prstatus:", ...args);
+  } else {
+    log = function () {};
+    console.log("Details logs disabled. config.ENABLE_LOG=", config.ENABLE_LOG);
   }
 
   globalConfig = config;

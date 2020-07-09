@@ -6,6 +6,15 @@ h2 {
   color: #06f;
 }
 
+#version {
+  color: slategray;
+  margin-top: -20px;
+}
+
+#version::before {
+  content: "Version: ";
+}
+
 .icon {
   position: absolute;
   top: 0px;
@@ -24,11 +33,11 @@ form fieldset {
   display: block;
 }
 
-.field-value {
+form fieldset .field-value {
   display: block;
   width: 500px;
   font-family: monospace;
-  font-size: 11pt;
+  font-size: large;
 }
 
 form fieldset legend {
