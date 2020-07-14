@@ -1,4 +1,4 @@
-import { verifyGithubToken } from "./utils";
+import { verifyGithubToken } from "../utils";
 const { version } = chrome.runtime.getManifest();
 
 let log = () => {}; //console.log;

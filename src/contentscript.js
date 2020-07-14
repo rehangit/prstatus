@@ -1,14 +1,17 @@
-import { throttle, uniqBy } from "./utils";
+import { throttle } from "./utils";
+import logger from "./logger";
+import { getJiraIssues } from "./jira";
+import { getPrsWithReviews } from "./github";
 
-let log = console.log;
-
-log("prstatus: content script global");
 const THROTTLE_RATE = 500;
-let globalConfig = {};
+
+logger.debug("prstatus: content script global");
+
+global.prStatus = global.prStatus || {};
+global.prStatus.config = global.prStatus.config = {};
+const prStatus = global.prStatus;
 
 const JIRA_BOARD_ID = window.location.search.match("rapidView=([0-9]+)")[1];
-
-const JIRA_BASE_URL = `/rest/agile/1.0/board/${JIRA_BOARD_ID}`;
 
 const updateConfig = async () => {
   const config = await new Promise(resolve =>
@@ -16,47 +19,16 @@ const updateConfig = async () => {
   );
 
   if (config.ENABLE_LOG || config.ENABLE_LOG === "true") {
-    log = (...args) => console.log("prstatus:", ...args);
+    logger.enable();
   } else {
-    log = function () {};
-    console.log("Details logs disabled. config.ENABLE_LOG=", config.ENABLE_LOG);
+    logger.log("Debug logs disabled.");
+    logger.disable();
   }
 
-  globalConfig = config;
+  prStatus.config = config;
+  prStatus.config.issues = await getJiraIssues(config.JIRA_COLUMNS);
 
-  const jiraBoardColumns = await fetch(`${JIRA_BASE_URL}/configuration`)
-    .then(r => r.json())
-    .then(boardConfig => boardConfig.columnConfig.columns);
-  log({ jiraBoardColumns });
-
-  const activeCols = config.JIRA_COLUMNS.length
-    ? jiraBoardColumns.filter(c =>
-        config.JIRA_COLUMNS.toLowerCase().includes(c.name.toLowerCase()),
-      )
-    : jiraBoardColumns;
-
-  const activeStatuses = await Promise.all(
-    activeCols
-      .map(c => c.statuses.map(s => s.id))
-      .flat()
-      .map(id =>
-        fetch(`/rest/api/2/status/${id}`)
-          .then(r => r.json())
-          .then(s => s.name),
-      ),
-  );
-
-  if (!activeStatuses.length) {
-    console.error("PR STATUS: No column found on this board matching config!");
-    activeStatuses.push("Code Review");
-  }
-
-  log({ activeCols, activeStatuses });
-
-  globalConfig.JIRA_REFRESH_URL = `${JIRA_BASE_URL}/issue?jql=${activeStatuses
-    .map(s => `status="${s.trim()}"`)
-    .join(" OR ")} order by id desc`;
-  log({ globalConfig });
+  logger.debug({ prStatus });
 };
 
 const reviewStateIcon = {
@@ -87,127 +59,37 @@ const prAttr = (state, attr) => {
   return (attribs[state] || attribs.default)[attr];
 };
 
-const reviewSortOrder = {
-  APPROVED: 1,
-  CHANGES_REQUESTED: 2,
-  COMMENTED: 3,
-};
-
-const fetchCache = {};
-const cachedFetch = async (url, params, useCache) => {
-  if (
-    fetchCache[url] &&
-    fetchCache[url].res &&
-    (fetchCache[url].useCache || useCache)
-  ) {
-    fetchCache[url].count = fetchCache[url].count + 1;
-    log(url, "Cached used count:", fetchCache[url].count);
-    return fetchCache[url].res;
-  }
-  const response = await fetch(url, { ...params, cache: "force-cache" });
-  const headers = {};
-  if (globalConfig.ENABLE_LOG) {
-    response.headers.forEach((value, key) => {
-      headers[key] = value;
-    });
-  }
-  log(url, response, headers);
-
-  const res = await response.json();
-  fetchCache[url] = { res, count: 0, useCache: true };
-  setTimeout(() => {
-    fetchCache[url].useCache = false;
-  }, 120000);
-  return res;
-};
-
-const getPrsWithReviews = async (issueKey, useCache) => {
-  const { GITHUB_ACCOUNT, GITHUB_TOKEN } = globalConfig;
-  const headers = { Authorization: `token ${GITHUB_TOKEN}` };
-  const baseUrl = `https://api.github.com/search/issues?q=is:pr+org:${GITHUB_ACCOUNT}`;
-
-  const searchPrs = async url =>
-    cachedFetch(url, { headers }, useCache)
-      .then(res => res.items)
-      .catch(err => {
-        console.warn("error occurred in fetchPrs", err);
-        return [];
-      });
-
-  const [prsTitle = [], prsBranch = []] = await Promise.all([
-    searchPrs(`${baseUrl}+in:title+${issueKey}`),
-    searchPrs(`${baseUrl}+head:${issueKey}`),
-  ]).catch(console.error);
-  log({ prsTitle, prsBranch });
-
-  const prs = uniqBy([...prsTitle, ...prsBranch].filter(Boolean), "id");
-  log({ prs });
-
-  const fetchDefault = (url, defaultResult) =>
-    fetch(url, { headers })
-      .then(res => {
-        log(res);
-        return res.json();
-      })
-      .catch(err => {
-        console.error(err);
-        return defaultResult;
-      });
-
-  const prsWithReviews = await Promise.all(
-    prs.map(async pr => {
-      const [reviews, merged] = await Promise.all([
-        fetchDefault(`${pr.pull_request.url}/reviews`, []),
-        fetchDefault(`${pr.pull_request.url}`, false).then(res => res.merged),
-      ]);
-
-      return {
-        ...pr,
-        merged,
-        reviews: uniqBy(
-          reviews
-            .reverse()
-            .sort(
-              (a, b) => reviewSortOrder[a.state] - reviewSortOrder[b.state],
-            ),
-          r => r.user.id,
-        ),
-      };
-    }),
-  );
-
-  log({ prsWithReviews });
-  return prsWithReviews;
-};
-
 let refreshing = false;
 const refresh = async useCache => {
+  if (!prStatus.config.issues) return;
   if (refreshing) {
-    log("Alreading refreshing...");
+    logger.debug("Alreading refreshing...");
     return;
   }
-  refreshing = true;
+  refreshing = false;
 
-  const config = globalConfig;
-  log("pr status refresh", { config });
+  const config = prStatus.config;
+  logger.debug("refresh", { config });
 
-  const issuesOnPage = Array.from(
-    document.querySelectorAll("[data-issue-key]"),
-  ).map(k => k.dataset.issueKey);
+  const { issues } = prStatus.config;
+  logger.debug({ issues });
+  logger.log("Total issues to refresh", issues.length);
 
-  const issuesMatchingStatus = await fetch(config.JIRA_REFRESH_URL)
-    .then(r => r.json())
-    .then(d => d.issues.map(({ key, id }) => ({ key, id })));
+  // const prsAll = (
+  //   await Promise.all(
+  //     issues.map(issue =>
+  //       getPrsWithReviews(issue, useCache).then(prs => ({ ...issue, prs })),
+  //     ),
+  //   )
+  // ).reduce((acc, issue) => ({ ...acc, [issue.key]: issue }), {});
+  // const prsFast = await searchPrsFast(issues);
 
-  const issues = issuesMatchingStatus.filter(i => issuesOnPage.includes(i.key));
-  log({ issuesOnPage, issuesMatchingStatus, issues });
-
-  console.info("Total issues to refresh", issues.length);
+  // console.log({ prsAll, prsFast });
 
   return Promise.all(
     issues &&
       issues.map(async issue => {
-        const prs = await getPrsWithReviews(issue.key, useCache);
+        const prs = await getPrsWithReviews(issue, useCache);
         if (prs.length === 0) return;
 
         const issueNode = document.querySelector(
@@ -215,7 +97,7 @@ const refresh = async useCache => {
         );
         let extraFieldsNode = issueNode.querySelector(".ghx-extra-fields");
         if (!extraFieldsNode) {
-          log("No extra fields node to inject pr status");
+          logger.debug("No extra fields node to inject pr status");
           const lastSection = issueNode.querySelectorAll(
             "section:last-of-type",
           )[0];
@@ -276,7 +158,7 @@ const refresh = async useCache => {
 
 chrome.runtime.onMessage.addListener(async (request, sender) => {
   if (request == "refresh") {
-    log("content script received message: refresh", { sender });
+    logger.debug("content script received message: refresh", { sender });
     await updateConfig().then(refresh);
   }
 });
@@ -298,10 +180,10 @@ const observeCallback = async (mutationsList, observer) => {
     (event.childList && event.childList.length >= 0) ||
     (event.attributes && event.attributes.length >= 0)
   ) {
-    log("observerCallback", event, observer);
+    logger.debug("observerCallback", event, observer);
 
     if (observer.refresh && !observer.pause) {
-      log("initiating a throttled refresh");
+      logger.debug("initiating a throttled refresh");
       await observer.refresh(true);
     }
   }
@@ -309,9 +191,9 @@ const observeCallback = async (mutationsList, observer) => {
 
 if (JIRA_BOARD_ID && JIRA_BOARD_ID.length)
   window.addEventListener("load", async e => {
-    log("content script load");
+    logger.debug("content script load");
     await updateConfig().then(refresh);
-    log("content script refreshed with config", globalConfig);
+    logger.debug("content script refreshed with config", prStatus.config);
 
     const targetNode = document.querySelector("#ghx-work");
     if (targetNode) {
