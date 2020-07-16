@@ -24,7 +24,7 @@ const fetchGithub = (url, token) =>
         return res;
       });
     })
-    .catch(console.error);
+    .catch(logger.error);
 
 const estimateNumberOfRepos = repos => {
   let pageLast = 0;
@@ -60,7 +60,7 @@ export const verifyGithubToken = (account, token) => {
       const user = resUser.message || resUser.total_count;
       return { org, user, scopes };
     })
-    .catch(console.error);
+    .catch(logger.error);
 };
 
 const searchPrsFast = async issues => {
@@ -72,71 +72,42 @@ const searchPrsFast = async issues => {
   const from = issues[0].created.split("T")[0];
   const baseUrl = `https://api.github.com/search/issues?sort=updated&order=desc&per_page=100&q=is:pr+org:${GITHUB_ACCOUNT}+created:>=${from}`;
 
-  const [prsTitle, prsBranch] = await Promise.all([
+  const [prsTitle = [], prsBranch = []] = await Promise.all([
     searchPrs(`${baseUrl}+in:title+${prefix}`),
     searchPrs(`${baseUrl}+head:${prefix}`),
   ]);
-  console.log({ prsTitle, prsBranch });
+  logger.debug({ prsTitle, prsBranch });
   const searchResults = uniqBy(
     [...prsTitle, ...prsBranch].filter(Boolean),
     "id",
   );
-  console.log({ searchResults });
+  logger.debug({ searchResults });
   const prsInSearchResults = issues.reduce((acc, issue) => {
     const prs = searchResults.filter(res => res.title.includes(issue.key));
     acc[issue.key] = { ...issue, prs };
     return acc;
   }, {});
 
-  console.log({ prsInSearchResults });
+  logger.debug({ prsInSearchResults });
 
   return prsInSearchResults;
 };
 
 export const getPrsWithReviews = async (issue, useCache) => {
   const issueKey = issue.key;
-  const { GITHUB_ACCOUNT, GITHUB_TOKEN } = prStatus.config;
+  const { GITHUB_TOKEN } = prStatus.config;
   const headers = { Authorization: `token ${GITHUB_TOKEN}` };
-  const baseUrl = `https://api.github.com/search/issues?q=is:pr+org:${GITHUB_ACCOUNT}`;
-
-  const searchPrs = async url =>
-    cachedFetch(url, { headers }, useCache)
-      .then(res => res.items)
-      .catch(err => {
-        console.warn("error occurred in fetchPrs", err);
-        return [];
-      });
-
-  const [prsTitle = [], prsBranch = []] = await Promise.all([
-    searchPrs(`${baseUrl}+in:title+${issueKey}`),
-    searchPrs(`${baseUrl}+head:${issueKey}`),
-  ]).catch(console.error);
-  logger.debug({ prsTitle, prsBranch });
-
-  const prs = uniqBy([...prsTitle, ...prsBranch].filter(Boolean), "id");
-  logger.debug({ prs });
-
-  const fetchDefault = (url, defaultResult) =>
-    fetch(url, { headers })
-      .then(res => {
-        logger.debug(res);
-        return res.json();
-      })
-      .catch(err => {
-        console.error(err);
-        return defaultResult;
-      });
 
   const prsWithReviews = await Promise.all(
-    prs.map(async pr => {
-      const [reviews, merged] = await Promise.all([
-        fetchDefault(`${pr.pull_request.url}/reviews`, []),
-        fetchDefault(`${pr.pull_request.url}`, false).then(res => res.merged),
-      ]);
+    issue.prs.map(async pr => {
+      const url = pr.url
+        .replace("https://github.com/", "https://api.github.com/repos/")
+        .replace("/pull/", "/pulls/");
+      const reviews =
+        (await cachedFetch(`${url}/reviews`, { headers }, true)) || [];
 
       return {
         ...pr,
-        merged,
         reviews: uniqBy(
           reviews
             .reverse()

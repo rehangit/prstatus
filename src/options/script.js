@@ -1,7 +1,7 @@
-import { verifyGithubToken } from "../utils";
-const { version } = chrome.runtime.getManifest();
+import { verifyGithubToken } from "../github";
+import logger from "../logger";
 
-let log = () => {}; //console.log;
+const { version } = chrome.runtime.getManifest();
 
 const description = {
   GITHUB_ACCOUNT: ["Github Account", "GitHub main account name (org or user)"],
@@ -11,22 +11,27 @@ const description = {
   ],
   JIRA_COLUMNS: [
     "JIRA Column(s)",
-    "Only update JIRA issues that appear in following columns: (comma separated array of column header names; default = 'Code Review')",
+    `Only update JIRA issues that appear in following columns: 
+    <br/>Comma separated list of <b>column header names</b>. Case insensitive. 
+    <br/>Leave empty for updating all columns other than the first and the last.
+    <br/><scan style="color:orange">Note: Max 20 issues can be updated on a board at a time.<scan>`,
   ],
   URL_PATTERN_FOR_PAGE_ACTION: [
     "Page Filter",
     "Url regex to restrict the scope of this extension",
   ],
+  ENABLE_LOG: ["Advanced", "Enable debug logs"],
 };
 
-const configField = config => key => {
-  const [legend, desc] = description[key];
+const configField = config => (key, attribs = "") => {
+  const [legend, desc, placeholder = ""] = description[key];
   const value = config[key];
   return `
   <fieldset>
     <legend>${legend}</legend>
-    <label for="${key}">${desc}</label>
-    <input name="${key}" type="text" class="field-value" value="${value}" spellcheck="false">
+    <label for="${key}">${desc}
+    <input ${attribs} name="${key}" type="text" class="field-value" value="${value}" spellcheck="false" placeholder="${placeholder}">
+    </label>
     <div style="display:none" class="status" name="${key}"></div>
   </fieldset>
   `;
@@ -38,14 +43,12 @@ const configForm = config => {
     ${field("GITHUB_ACCOUNT")}
     ${field("GITHUB_TOKEN")}
     ${field("JIRA_COLUMNS")}
-
-    <fieldset>
-      <legend>Advanced</legend>
-      <input type="checkbox" name="ENABLE_LOG" ${
+    ${field(
+      "ENABLE_LOG",
+      `type=\"checkbox\" ${
         config.ENABLE_LOG ? "checked" : ""
-      } value="true" >
-      <label for="ENABLE_LOG">Enable logs</label>
-    </fieldset>
+      } value=\"true\" class=""`,
+    )}
 
     <button class="cancel" >Cancel</button>
     <button class="save" default>Save</button>
@@ -53,7 +56,7 @@ const configForm = config => {
 };
 
 const populateConfig = config => {
-  log("options page received config from background", { config });
+  logger.debug("options page received config from background", { config });
   // document.querySelector("#config form").innerHTML = configForm(config);
   document
     .querySelector("#config form")
@@ -64,12 +67,12 @@ const showGithubValidation = async e => {
   const token = document.querySelector("input[name=GITHUB_TOKEN]").value;
   const account = document.querySelector("input[name=GITHUB_ACCOUNT]").value;
 
-  log("showGithubValidation called.", { account, token });
+  logger.debug("showGithubValidation called.", { account, token });
   if (!account || !token) return;
 
   const statusToken = document.querySelector(".status[name=GITHUB_TOKEN]");
   const { scopes, user, org } = await verifyGithubToken(account, token);
-  log({ scopes, user, org });
+  logger.debug({ scopes, user, org });
   statusToken.setAttribute("style", "display:block");
   const scopeGood = scopes && scopes.includes("repo");
   const colorUser = typeof user === "string" ? "red" : "initial";
@@ -109,7 +112,7 @@ window.addEventListener("load", () => {
         acc[k] = v;
         return acc;
       }, {});
-      console.log("Config being sent to background", { config });
+      logger.debug("Config being sent to background", { config });
       chrome.runtime.sendMessage({ action: "saveConfig", config });
     }
     window.close();

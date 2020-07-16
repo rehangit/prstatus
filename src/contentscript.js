@@ -26,15 +26,14 @@ const updateConfig = async () => {
   }
 
   prStatus.config = config;
-  prStatus.config.issues = await getJiraIssues(config.JIRA_COLUMNS);
 
   logger.debug({ prStatus });
 };
 
 const reviewStateIcon = {
-  APPROVED: "icons/approved.png",
-  COMMENTED: "icons/commented.png",
-  CHANGES_REQUESTED: "icons/change_requested.png",
+  APPROVED: chrome.runtime.getURL("icons/approved.png"),
+  COMMENTED: chrome.runtime.getURL("icons/commented.png"),
+  CHANGES_REQUESTED: chrome.runtime.getURL("icons/change_requested.png"),
 };
 
 const prAttr = (state, attr) => {
@@ -61,40 +60,30 @@ const prAttr = (state, attr) => {
 
 let refreshing = false;
 const refresh = async useCache => {
-  if (!prStatus.config.issues) return;
   if (refreshing) {
     logger.debug("Alreading refreshing...");
     return;
   }
-  refreshing = false;
+  refreshing = true;
 
   const config = prStatus.config;
   logger.debug("refresh", { config });
 
-  const { issues } = prStatus.config;
+  const issues = await getJiraIssues(config.JIRA_COLUMNS);
+
   logger.debug({ issues });
   logger.log("Total issues to refresh", issues.length);
-
-  // const prsAll = (
-  //   await Promise.all(
-  //     issues.map(issue =>
-  //       getPrsWithReviews(issue, useCache).then(prs => ({ ...issue, prs })),
-  //     ),
-  //   )
-  // ).reduce((acc, issue) => ({ ...acc, [issue.key]: issue }), {});
-  // const prsFast = await searchPrsFast(issues);
-
-  // console.log({ prsAll, prsFast });
 
   return Promise.all(
     issues &&
       issues.map(async issue => {
-        const prs = await getPrsWithReviews(issue, useCache);
+        const prs = await getPrsWithReviews(issue);
         if (prs.length === 0) return;
 
         const issueNode = document.querySelector(
           `.ghx-issue[data-issue-id='${issue.id}']`,
         );
+        if (!issueNode) return;
         let extraFieldsNode = issueNode.querySelector(".ghx-extra-fields");
         if (!extraFieldsNode) {
           logger.debug("No extra fields node to inject pr status");
@@ -110,41 +99,42 @@ const refresh = async useCache => {
 
         const prStatusRows = prs.map(pr => {
           const reviews = pr.reviews || [];
-          const status = pr.merged ? "merged" : pr.state;
+          const repo = pr.url.split("/").slice(-3)[0];
+
+          const status =
+            pr.status === "DECLINED" ? "merged" : pr.status.toLowerCase();
           const color = prAttr(status, "color");
           const imageUrl = prAttr(status, "imageUrl");
           const text = prAttr(status, "text");
 
           return `
-        <div class="ghx-row prstatus-row" style="position:relative; max-width: 100%; line-height:1.65em; max-height:1.65em;">
-          <a
-            href="${pr.html_url}"
-            target="_blank"
-            onclick="arguments[0].stopPropagation()"
-            title="${pr.title}"
-            style="padding:1px 4px 1px 2px; border-radius:2px; text-decoration: none; color: white; background:${color}"
-          ><img style="vertical-align: text-top; margin-right:2px;" src="${imageUrl}">${text}</a>
-          <span style="overflow-text:ellipsis;">${
-            pr.repository_url.split("/").slice(-1)[0]
-          }</span>
-          <span style="position:absolute; right:0">
-            ${reviews
-              .map(r => {
-                return (
-                  reviewStateIcon[r.state] &&
-                  `
-                  <span title="${r.user.login}" style="cursor:auto;" >
-                    <img width="16px" height="16px" src="${chrome.runtime.getURL(
-                      reviewStateIcon[r.state],
-                    )}" >
-                  </span>
-                  `
-                );
-              })
-              .join("")}
-          </span>
-        </div>
-      `;
+            <div class="ghx-row prstatus-row" style="position:relative; max-width: 100%; line-height:1.65em; max-height:1.65em;">
+              <a
+                href="${pr.url}"
+                target="_blank"
+                onclick="arguments[0].stopPropagation()"
+                title="${pr.name}"
+                style="padding:1px 4px 1px 2px; border-radius:2px; text-decoration: none; color: white; background:${color}"
+              ><img style="vertical-align: text-top; margin-right:2px;" src="${imageUrl}">${text}</a>
+              <span style="overflow-text:ellipsis;">${repo}</span>
+              <span style="position:absolute; right:0">
+                ${reviews
+                  .map(r => {
+                    return (
+                      reviewStateIcon[r.state] &&
+                      `
+                      <span title="${r.user.login}" style="cursor:auto;" >
+                        <img width="16px" height="16px" src="${
+                          reviewStateIcon[r.state]
+                        }" >
+                      </span>
+                      `
+                    );
+                  })
+                  .join("")}
+              </span>
+            </div>
+          `;
         });
         const elems = extraFieldsNode.querySelectorAll(".prstatus-row");
         if (elems && elems.length) [...elems].forEach(elem => elem.remove());
@@ -202,7 +192,11 @@ if (JIRA_BOARD_ID && JIRA_BOARD_ID.length)
 
       const throttledRefresh = throttle(async () => {
         observer.pause = true;
-        await refresh();
+        try {
+          await refresh();
+        } catch (err) {
+          logger.error("refresh error", err);
+        }
         observer.pause = false;
       }, THROTTLE_RATE);
 

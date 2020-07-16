@@ -1,93 +1,65 @@
 import logger from "./logger";
+import { cachedFetch } from "./cachedFetch";
 
 const JIRA_BOARD_ID = window.location.search.match("rapidView=([0-9]+)")[1];
 const JIRA_BASE_URL = `/rest/agile/1.0/board/${JIRA_BOARD_ID}`;
+const JIRA_DEV_URL = "/rest/dev-status/1.0/issue/details?issueId=";
 
-let _setup;
+const boardColumns = Array.from(
+  document.querySelectorAll(".ghx-column-headers li.ghx-column"),
+).map(col => {
+  const tooltip = col.querySelector("[data-tooltip]");
+  return { id: col.dataset.id, name: tooltip.dataset.tooltip.toLowerCase() };
+});
 
-const setup = async () => {
-  if (_setup) return _setup;
-
-  const boardColumns = await fetch(`${JIRA_BASE_URL}/configuration`)
-    .then(r => r.json())
-    .then(boardConfig => boardConfig.columnConfig.columns);
-
-  logger.debug({ boardColumns });
-
-  const boardStatuses = await Promise.all(
-    boardColumns.map(({ statuses, name: column }) =>
-      Promise.all(
-        statuses.map(({ id }) =>
-          fetch(`/rest/api/2/status/${id}`)
-            .then(r => r.json())
-            .then(({ name: status }) => ({
-              status,
-              column,
-            })),
-        ),
-      ),
-    ),
-  );
-
-  logger.debug({ boardStatuses });
-
-  const statusToColumn = boardStatuses
-    .flat()
-    .reduce((acc, { status, column }) => {
-      acc[status] = column;
-      return acc;
-    }, {});
-
-  logger.debug({ statusToColumn });
-
-  _setup = {
-    boardColumns,
-    statusToColumn,
-  };
-
-  return _setup;
-};
+const columnIdToName = boardColumns.reduce(
+  (acc, col) => ({ ...acc, [col.id]: col.name }),
+  {},
+);
 
 export const getJiraIssues = async columns => {
-  if (!columns || !columns.length) {
-    logger.log("No columns selected");
-    return;
-  }
+  const activeColumnNames = (columns && columns.length > 0
+    ? boardColumns.filter(c => columns.toLowerCase().includes(c.name))
+    : boardColumns.slice(1, -1)
+  ).map(c => c.name);
 
-  const { statusToColumn, boardColumns } = await setup();
+  logger.debug({ activeColumnNames });
 
-  const activeColumns = boardColumns
-    .filter(c => columns.toLowerCase().includes(c.name.toLowerCase()))
-    .map(ac => ac.name);
-
-  logger.debug({ activeColumns });
-
-  const issueIdsOnBoard = Array.from(
-    document.querySelectorAll("[data-issue-id]"),
-  ).map(k => k.dataset.issueId);
-
-  logger.debug({ issueIdsOnBoard });
-
-  const issuesOnBoard = await Promise.all(
-    issueIdsOnBoard.map(id =>
-      fetch(`/rest/agile/1.0/issue/${id}`)
-        .then(res => res.json())
-        .then(issue => ({
-          id: issue.id,
-          key: issue.key,
-          created: issue.fields.created,
-          status: issue.fields.status.name,
-          column: statusToColumn[issue.fields.status.name],
-        })),
-    ),
-  );
+  const issuesOnBoard = [
+    ...document.querySelectorAll(".ghx-column[data-column-id]"),
+  ]
+    .map(col =>
+      [...col.querySelectorAll("[data-issue-id")].map(issue => ({
+        id: issue.dataset.issueId,
+        key: issue.dataset.issueKey,
+        columnName: columnIdToName[col.dataset.columnId],
+      })),
+    )
+    .flat();
 
   logger.debug({ issuesOnBoard });
 
-  const issues = issuesOnBoard
-    .filter(i => activeColumns.includes(i.column))
-    .sort((a, b) => a.id - b.id);
-  logger.debug({ issues });
+  const activeIssues = issuesOnBoard
+    .filter(i => activeColumnNames.includes(i.columnName))
+    .sort((a, b) => a.id - b.id)
+    .slice(0, 20);
+  logger.debug({ activeIssues });
 
-  return issues;
+  const issuesWithPullRequests = await Promise.all(
+    activeIssues.map(i =>
+      cachedFetch(`${JIRA_DEV_URL}${i.id}`).then(res => {
+        const prs =
+          (res &&
+            res.detail
+              .map(d => d.pullRequests)
+              .flat()
+              .filter(Boolean)) ||
+          [];
+        return { ...i, prs };
+      }),
+    ),
+  );
+
+  logger.log({ issuesWithPullRequests });
+  return issuesWithPullRequests;
 };

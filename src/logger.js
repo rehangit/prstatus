@@ -1,7 +1,12 @@
 let enabled = false;
 class Logger {
-  enable() {
-    enabled = true;
+  enable(param) {
+    if (
+      !param ||
+      param === true ||
+      (typeof params === "string" && param.toLoweCase() === "true")
+    )
+      enabled = true;
   }
 
   disable() {
