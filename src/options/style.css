@@ -41,9 +41,10 @@ form fieldset .field-value {
 }
 
 form fieldset legend {
-  background-color: #000;
+  background-color: #0077ff;
   color: #fff;
-  padding: 3px 6px;
+  padding: 4px 8px;
+  border-radius: 3px;
 }
 
 .container {
@@ -60,4 +61,16 @@ form fieldset legend {
   .header {
     display: block;
   }
+}
+
+button.save:hover {
+  color: white;
+  text-shadow: none;
+  background: #02ba01;
+}
+
+button.cancel:hover {
+  color: white;
+  text-shadow: none;
+  background: pink;
 }

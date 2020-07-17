@@ -1,5 +1,6 @@
 import { verifyGithubToken } from "../github";
 import logger from "../logger";
+logger.disable();
 
 const { version } = chrome.runtime.getManifest();
 
@@ -12,7 +13,7 @@ const description = {
   JIRA_COLUMNS: [
     "JIRA Column(s)",
     `Only update JIRA issues that appear in following columns: 
-    <br/>Comma separated list of <b>column header names</b>. Case insensitive. 
+    <br/><b>Column header names</b> separated by comma (+ space). Case insensitive. 
     <br/>Leave empty for updating all columns other than the first and the last.
     <br/><scan style="color:orange">Note: Max 20 issues can be updated on a board at a time.<scan>`,
   ],
@@ -96,7 +97,7 @@ document.getElementById("version").innerText = version;
 window.addEventListener("load", () => {
   chrome.runtime.sendMessage({ action: "sendConfig" }, config => {
     populateConfig(config);
-    if (!config.ENABLE_LOG && config.ENABLE_LOG !== "true") log = () => {};
+    logger.enable(config.ENABLE_LOG);
 
     document
       .querySelector("input[name=GITHUB_TOKEN]")
