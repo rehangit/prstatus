@@ -10,22 +10,20 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
-    - name: Use Node.js 12.x
-      uses: actions/setup-node@v2.1.1
-      with:
-        node-version: 12.x
+      - uses: actions/checkout@v2
+      - name: Use Node.js 12.x
+        uses: actions/setup-node@v2.1.1
+        with:
+          node-version: 12.x
 
-    - run: npm ci
-    - run: npm run build
-    - run: npm run zip
+      - run: npm ci
+      - run: npm run build
+      - run: npm run zip
 
-    - uses: meeDamian/github-release@2.0
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        
-        
+      - uses: meeDamian/github-release@2.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          files: ./prstatus.zip
