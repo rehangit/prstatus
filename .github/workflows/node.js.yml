@@ -5,24 +5,27 @@ name: Node.js CI
 
 on:
   push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+    branches: master
+    tags: v*
 
 jobs:
   build:
 
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        node-version: [10.x, 12.x, 14.x]
-
     steps:
     - uses: actions/checkout@v2
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v1
+    - name: Use Node.js 12.x
+      uses: actions/setup-node@v2.1.1
       with:
-        node-version: ${{ matrix.node-version }}
+        node-version: 12.x
+
     - run: npm ci
-    - run: npm run build --if-present
+    - run: npm run build
+    - run: npm run zip
+
+    - uses: meeDamian/github-release@2.0
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        
+        
