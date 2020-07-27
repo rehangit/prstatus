@@ -1,11 +1,11 @@
 import logger from "./logger";
 
 const fetchCache = {};
-export const cachedFetch = async (url, params = {}, useCache = true) => {
+export const cachedFetch = async (url, params = {}, forceCache = false) => {
   if (
     fetchCache[url] &&
     fetchCache[url].res &&
-    (!fetchCache[url].expired || useCache)
+    (!fetchCache[url].expired || forceCache)
   ) {
     fetchCache[url].count++;
     logger.debug(url, "Cached used count:", fetchCache[url].count);
@@ -13,7 +13,7 @@ export const cachedFetch = async (url, params = {}, useCache = true) => {
   }
   const response = await fetch(url, {
     ...params,
-    cache: useCache ? "force-cache" : "default",
+    cache: forceCache ? "force-cache" : "default",
   }).catch(logger.error);
 
   if (!response) {
