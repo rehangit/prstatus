@@ -21,10 +21,19 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm run zip
-      - run: mv prstatus.zip prstatus-${{GITHUB_REF}}.zip
+
+      - name: Set env var
+        run: echo ::set-env name=RELEASE_VERSION::${GITHUB_REF#refs/*/}
+      - name: Test the version var
+        run: |
+          echo $RELEASE_VERSION
+          echo ${{ env.RELEASE_VERSION }}
+
+      - name: Add version to zip file name
+        run: mv prstatus.zip prstatus-$RELEASE_VERSION.zip
 
       - uses: meeDamian/github-release@2.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          files: ./prstatus-${{GITHUB_REF}}.zip
+          files: ./prstatus-$RELEASE_VERSION.zip
           gzip: false
