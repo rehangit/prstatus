@@ -3,23 +3,23 @@ const logger = makeLogger("jira");
 
 import { delayedFetch } from "./delayedFetch";
 
-const JIRA_BOARD_ID = window.location.search.match("rapidView=([0-9]+)")[1];
-const JIRA_BASE_URL = `/rest/agile/1.0/board/${JIRA_BOARD_ID}`;
-const JIRA_DEV_URL = "/rest/dev-status/1.0/issue/details?issueId=";
-
-const boardColumns = Array.from(
-  document.querySelectorAll(".ghx-column-headers li.ghx-column"),
-).map(col => {
-  const tooltip = col.querySelector("[data-tooltip]");
-  return { id: col.dataset.id, name: tooltip.dataset.tooltip.toLowerCase() };
-});
-
-const columnIdToName = boardColumns.reduce(
-  (acc, col) => ({ ...acc, [col.id]: col.name }),
-  {},
-);
-
 export const getJiraIssues = async columns => {
+  const JIRA_BOARD_ID = window.location.search.match("rapidView=([0-9]+)")[1];
+  const JIRA_BASE_URL = `/rest/agile/1.0/board/${JIRA_BOARD_ID}`;
+  const JIRA_DEV_URL = "/rest/dev-status/1.0/issue/details?issueId=";
+
+  const boardColumns = Array.from(
+    document.querySelectorAll(".ghx-column-headers li.ghx-column"),
+  ).map(col => {
+    const tooltip = col.querySelector("[data-tooltip]");
+    return { id: col.dataset.id, name: tooltip.dataset.tooltip.toLowerCase() };
+  });
+
+  const columnIdToName = boardColumns.reduce(
+    (acc, col) => ({ ...acc, [col.id]: col.name }),
+    {},
+  );
+
   const activeColumnNames = (columns && columns.length > 0
     ? boardColumns.filter(c => columns.toLowerCase().includes(c.name))
     : boardColumns.slice(1, -1)

@@ -62,13 +62,13 @@ const prAttr = (state, attr) => {
 let refreshing = false;
 const refresh = async useCache => {
   if (refreshing) {
-    logger.debug("Alreading refreshing...");
+    logger.debug("Already refreshing...");
     return;
   }
   refreshing = true;
 
   const config = prStatus.config;
-  logger.debug("refresh", { config });
+  logger.debug("refresh triggered", config);
 
   const issues = await getJiraIssues(config.JIRA_COLUMNS);
 
@@ -87,7 +87,10 @@ const refresh = async useCache => {
         if (!issueNode) return;
         let extraFieldsNode = issueNode.querySelector(".ghx-extra-fields");
         if (!extraFieldsNode) {
-          logger.debug("No extra fields node to inject pr status");
+          logger.debug(
+            "No extra fields node to inject. Adding section.",
+            issue.key,
+          );
           const lastSection = issueNode.querySelectorAll(
             "section:last-of-type",
           )[0];
