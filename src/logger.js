@@ -1,6 +1,9 @@
 let enabled = false;
 class Logger {
-  enable(param) {
+  constructor(name) {
+    this.prefix = name && name.length ? `prstatus(${name}):` : "prstatus:";
+  }
+  enableDebug(param) {
     if (
       !param ||
       param === true ||
@@ -9,19 +12,19 @@ class Logger {
       enabled = true;
   }
 
-  disable() {
+  disableDebug() {
     enabled = false;
   }
 
   log(...args) {
-    console.log("prstatus:", ...args);
+    console.log(this.prefix, ...args);
   }
   debug(...args) {
-    if (enabled) console.log("prstatus:", ...args);
+    if (enabled) console.log(this.prefix, ...args);
   }
   error(...args) {
-    console.error("prstatus:", ...args);
+    console.error(this.prefix, ...args);
   }
 }
 
-export default new Logger();
+export default name => new Logger(name);

@@ -1,4 +1,6 @@
-import logger from "./logger";
+import makeLogger from "./logger";
+const logger = makeLogger("github");
+
 import { cachedFetch } from "./cachedFetch";
 import { uniqBy } from "./utils";
 
@@ -119,6 +121,11 @@ export const getPrsWithReviews = async (issue, useCache) => {
     }),
   );
 
-  logger.debug({ prsWithReviews });
+  logger.debug(
+    "reviews added to issue prs",
+    issue.key,
+    issue.columnName,
+    prsWithReviews,
+  );
   return prsWithReviews;
 };

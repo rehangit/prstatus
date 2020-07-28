@@ -1,5 +1,7 @@
 import { verifyGithubToken } from "../github";
-import logger from "../logger";
+import makeLogger from "../logger";
+const logger = makeLogger("options");
+
 logger.disable();
 
 const { version } = chrome.runtime.getManifest();

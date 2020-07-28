@@ -1,5 +1,6 @@
 import { throttle } from "./utils";
-import logger from "./logger";
+import makeLogger from "./logger";
+const logger = makeLogger("cs");
 import { getJiraIssues } from "./jira";
 import { getPrsWithReviews } from "./github";
 
@@ -19,10 +20,10 @@ const updateConfig = async () => {
   );
 
   if (config.ENABLE_LOG || config.ENABLE_LOG === "true") {
-    logger.enable();
+    logger.enableDebug();
   } else {
     logger.log("Debug logs disabled.");
-    logger.disable();
+    logger.disableDebug();
   }
 
   prStatus.config = config;

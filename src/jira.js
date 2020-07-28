@@ -1,5 +1,5 @@
-import logger from "./logger";
-import { cachedFetch } from "./cachedFetch";
+import makeLogger from "./logger";
+const logger = makeLogger("jira");
 
 const JIRA_BOARD_ID = window.location.search.match("rapidView=([0-9]+)")[1];
 const JIRA_BASE_URL = `/rest/agile/1.0/board/${JIRA_BOARD_ID}`;

@@ -1,5 +1,6 @@
-import logger from "./logger";
-logger.enable();
+import makeLogger from "./logger";
+const logger = makeLogger("bg");
+logger.enableDebug();
 
 const defaultConfig = {
   GITHUB_ACCOUNT: "",
@@ -31,7 +32,7 @@ chrome.runtime.onInstalled.addListener(details => {
   localStorage.setItem("PrStatusConfig", JSON.stringify(config));
 
   logger.log("PR Status background", config);
-  logger.enable(config.ENABLE_LOG);
+  logger.enableDebug(config.ENABLE_LOG);
 
   resetPageActionRules({ urlMatches: config.URL_PATTERN_FOR_PAGE_ACTION });
   if (details.reason === "install") {
@@ -59,7 +60,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action == "saveConfig") {
     logger.debug("saving config", request.config);
     localStorage.setItem("PrStatusConfig", JSON.stringify(request.config));
-    logger.enable(request.config.ENABLE_LOG);
+    logger.enableDebug(request.config.ENABLE_LOG);
   }
 });
 

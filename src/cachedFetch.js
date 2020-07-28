@@ -1,4 +1,5 @@
-import logger from "./logger";
+import makeLogger from "./logger";
+const logger = makeLogger("fetch");
 
 const fetchCache = {};
 export const cachedFetch = async (url, params = {}, forceCache = false) => {
