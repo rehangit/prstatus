@@ -4,7 +4,7 @@ const logger = makeLogger("delayed");
 
 const fetchCache = {};
 export const delayedFetch = async (url, params = {}, total = 20) => {
-  const delay = Math.random() * (2 + total / 20) * 1000;
+  const delay = Math.random() * (1 + total / 20) * 1000;
   return new Promise((resolve, reject) => {
     setTimeout(async () => {
       try {

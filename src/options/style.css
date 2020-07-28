@@ -74,3 +74,25 @@ button.cancel:hover {
   text-shadow: none;
   background: pink;
 }
+
+.status {
+  display: none;
+}
+
+.JIRA_COLUMNS .status {
+  display: block;
+}
+
+.GITHUB_TOKEN .status {
+  display: block;
+  animation: animate-opacity 1s ease-in-out infinite alternate;
+}
+
+@keyframes animate-opacity {
+  from {
+    opacity: 0.1;
+  }
+  to {
+    opacity: 0.5;
+  }
+}

@@ -26,7 +26,7 @@ const fetchGithub = (url, token) =>
         return res;
       });
     })
-    .catch(logger.error);
+    .catch(err => logger.error(err));
 
 const estimateNumberOfRepos = repos => {
   let pageLast = 0;
@@ -62,7 +62,7 @@ export const verifyGithubToken = (account, token) => {
       const user = resUser.message || resUser.total_count;
       return { org, user, scopes };
     })
-    .catch(logger.error);
+    .catch(err => logger.error(err));
 };
 
 const searchPrsFast = async issues => {

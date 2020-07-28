@@ -2,7 +2,7 @@ import { verifyGithubToken } from "../github";
 import makeLogger from "../logger";
 const logger = makeLogger("options");
 
-logger.disable();
+logger.disableDebug();
 
 const { version } = chrome.runtime.getManifest();
 
@@ -11,13 +11,15 @@ const description = {
   GITHUB_TOKEN: [
     "Github Token",
     "<a href='https://github.com/settings/tokens' target='_blank'>Personal Access Token</a> with atleast 'repo' scope",
+    "",
+    "<div>Checking token validity and access for Github repos ...<br/> Just a sec...<div>",
   ],
   JIRA_COLUMNS: [
     "JIRA Column(s)",
-    `Only update JIRA issues that appear in following columns: 
-    <br/><b>Column header names</b> separated by comma (+ space). Case insensitive. 
-    <br/>Leave empty for updating all columns other than the first and the last.
-    <br/><scan style="color:orange">Note: Max 20 issues can be updated on a board at a time.<scan>`,
+    `By default all middle columns (other than first and last) are updated.
+    <br/>Override to only update JIRA issues that appear in following columns:`,
+    "",
+    "Column header names</b> separated by comma. (Spaces trimmed; case ignored.)",
   ],
   URL_PATTERN_FOR_PAGE_ACTION: [
     "Page Filter",
@@ -27,15 +29,15 @@ const description = {
 };
 
 const configField = config => (key, attribs = "") => {
-  const [legend, desc, placeholder = ""] = description[key];
+  const [legend, desc, placeholder = "", statusText = ""] = description[key];
   const value = config[key];
   return `
-  <fieldset>
+  <fieldset class="${key}">
     <legend>${legend}</legend>
     <label for="${key}">${desc}
     <input ${attribs} name="${key}" type="text" class="field-value" value="${value}" spellcheck="false" placeholder="${placeholder}">
     </label>
-    <div style="display:none" class="status" name="${key}"></div>
+    <div class="status" name="${key}">${statusText}</div>
   </fieldset>
   `;
 };
@@ -74,9 +76,11 @@ const showGithubValidation = async e => {
   if (!account || !token) return;
 
   const statusToken = document.querySelector(".status[name=GITHUB_TOKEN]");
+  statusToken.setAttribute("style", "");
+
   const { scopes, user, org } = await verifyGithubToken(account, token);
   logger.debug({ scopes, user, org });
-  statusToken.setAttribute("style", "display:block");
+  statusToken.setAttribute("style", "animation:none; opacity:1;");
   const scopeGood = scopes && scopes.includes("repo");
   const colorUser = typeof user === "string" ? "red" : "initial";
   const colorOrg = typeof org === "string" ? "red" : "initial";
@@ -99,7 +103,7 @@ document.getElementById("version").innerText = version;
 window.addEventListener("load", () => {
   chrome.runtime.sendMessage({ action: "sendConfig" }, config => {
     populateConfig(config);
-    logger.enable(config.ENABLE_LOG);
+    logger.enableDebug(config.ENABLE_LOG);
 
     document
       .querySelector("input[name=GITHUB_TOKEN]")

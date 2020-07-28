@@ -15,7 +15,7 @@ export const cachedFetch = async (url, params = {}, forceCache = false) => {
   const response = await fetch(url, {
     ...params,
     cache: forceCache ? "force-cache" : "default",
-  }).catch(logger.error);
+  }).catch(err => logger.error(err));
 
   if (!response) {
     if (fetchCache[url] && fetchCache[url].res) {

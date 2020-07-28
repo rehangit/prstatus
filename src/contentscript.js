@@ -103,7 +103,7 @@ const refresh = async useCache => {
           const repo = pr.url.split("/").slice(-3)[0];
 
           const status =
-            pr.status === "DECLINED" ? "merged" : pr.status.toLowerCase();
+            pr.status === "DECLINED" ? "closed" : pr.status.toLowerCase();
           const color = prAttr(status, "color");
           const imageUrl = prAttr(status, "imageUrl");
           const text = prAttr(status, "text");
