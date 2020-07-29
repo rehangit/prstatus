@@ -19,7 +19,7 @@ const description = {
     `By default all middle columns (other than first and last) are updated.
     <br/>Override to only update JIRA issues that appear in following columns:`,
     "",
-    "Column header names</b> separated by comma. (Spaces trimmed; case ignored.)",
+    "Column header names</b> separated by comma.<br/>(Preceding or trailing spaces will be trimmed and case will be ignored)",
   ],
   URL_PATTERN_FOR_PAGE_ACTION: [
     "Page Filter",
