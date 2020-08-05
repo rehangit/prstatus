@@ -20,10 +20,10 @@ const fetchGithub = (url, token) =>
       res.headers.forEach((value, key) => {
         headers[key] = value;
       });
-      headers.status = res.status;
-      return res.json().then(res => {
-        res.headers = headers;
-        return res;
+      return res.json().then(json => {
+        json.headers = headers;
+        json.response = res;
+        return json;
       });
     })
     .catch(err => logger.error(err));
@@ -43,26 +43,29 @@ const estimateNumberOfRepos = repos => {
   return pageLast < 2 || repos.length < 30 ? repos.length : (pageLast - 1) * 30;
 };
 
-export const verifyGithubToken = (account, token) => {
-  logger.debug({ account, token });
-  return Promise.all([
+export const verifyGithubToken = async token => {
+  logger.debug({ token });
+  const [user, orgs] = await Promise.all([
+    fetchGithub("https://api.github.com/user", token),
+    fetchGithub("https://api.github.com/user/orgs", token),
+  ]);
+  const scopes = user.headers["x-oauth-scopes"];
+  const username = (user && user.login) || user.message;
+  const orgname = (orgs[0] && orgs[0].login) || orgs.message;
+  logger.debug({ user, orgs, scopes, orgname });
+  const [orgrepos, userrepos] = await Promise.all([
     fetchGithub(
-      `https://api.github.com/search/repositories?q=org:${account}`,
+      `https://api.github.com/search/repositories?q=org:${orgname}`,
       token,
     ),
     fetchGithub(
-      `https://api.github.com/search/repositories?q=user:${account}`,
+      `https://api.github.com/search/repositories?q=user:${username}`,
       token,
     ),
-  ])
-    .then(([resOrg, resUser]) => {
-      logger.debug({ resOrg, resUser });
-      const scopes = resOrg.headers["x-oauth-scopes"];
-      const org = resOrg.message || resOrg.total_count;
-      const user = resUser.message || resUser.total_count;
-      return { org, user, scopes };
-    })
-    .catch(err => logger.error(err));
+  ]);
+  logger.debug({ orgrepos, userrepos });
+
+  return { username, orgname, scopes, orgrepos, userrepos };
 };
 
 const searchPrsFast = async issues => {
@@ -98,14 +101,18 @@ const searchPrsFast = async issues => {
 export const getPrsWithReviews = async (issue, useCache) => {
   const issueKey = issue.key;
   const { GITHUB_TOKEN } = prStatus.config;
-  const headers = { Authorization: `token ${GITHUB_TOKEN}` };
+  const params = { headers: { Authorization: `token ${GITHUB_TOKEN}` } };
 
   const prsWithReviews = await Promise.all(
     issue.prs.map(async pr => {
       const url = pr.url
         .replace("https://github.com/", "https://api.github.com/repos/")
         .replace("/pull/", "/pulls/");
-      const reviews = (await cachedFetch(`${url}/reviews`, { headers })) || [];
+      const reviews = await cachedFetch(`${url}/reviews`, params);
+      if (!(reviews instanceof Array)) {
+        logger.error(reviews.message);
+        return;
+      }
 
       return {
         ...pr,

@@ -3,17 +3,10 @@ class Logger {
   constructor(name) {
     this.prefix = name && name.length ? `prstatus(${name}):` : "prstatus:";
   }
-  enableDebug(param) {
-    if (
-      !param ||
+  setDebug(param) {
+    enabled =
       param === true ||
-      (typeof params === "string" && param.toLoweCase() === "true")
-    )
-      enabled = true;
-  }
-
-  disableDebug() {
-    enabled = false;
+      (typeof params === "string" && param.toLoweCase() === "true");
   }
 
   log(...args) {

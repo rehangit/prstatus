@@ -15,7 +15,10 @@ export const cachedFetch = async (url, params = {}, forceCache = false) => {
   const response = await fetch(url, {
     ...params,
     cache: forceCache ? "force-cache" : "default",
-  }).catch(err => logger.error(err));
+  }).catch(err => {
+    logger.error(err);
+    return null;
+  });
 
   if (!response) {
     if (fetchCache[url] && fetchCache[url].res) {
@@ -30,12 +33,9 @@ export const cachedFetch = async (url, params = {}, forceCache = false) => {
     headers[key] = value;
   });
 
-  if (response.status >= 400) {
-    logger.error("fetch error:", { response, headers });
-  }
-
   const res = await response.json();
   res.headers = headers;
+  res.response = response;
 
   logger.debug(url, res);
 

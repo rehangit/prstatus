@@ -18,16 +18,8 @@ const updateConfig = async () => {
   const config = await new Promise(resolve =>
     chrome.runtime.sendMessage({ action: "sendConfig" }, resolve),
   );
-
-  if (config.ENABLE_LOG || config.ENABLE_LOG === "true") {
-    logger.enableDebug();
-  } else {
-    logger.log("Debug logs disabled.");
-    logger.disableDebug();
-  }
-
+  logger.setDebug(config.ENABLE_LOG);
   prStatus.config = config;
-
   logger.debug({ prStatus });
 };
 
@@ -69,8 +61,12 @@ const refresh = async useCache => {
 
   const config = prStatus.config;
   logger.debug("refresh triggered", config);
+  if (!config.GITHUB_TOKEN || !config.GITHUB_TOKEN.length) {
+    logger.error("refresh aborted: no github token", config);
+    return;
+  }
 
-  const issues = await getJiraIssues(config.JIRA_COLUMNS);
+  const issues = await getJiraIssues(/*config.JIRA_COLUMNS*/);
 
   logger.debug({ issues });
   logger.log("Total issues to refresh", issues.length);
@@ -101,7 +97,7 @@ const refresh = async useCache => {
           extraFieldsNode = issueNode.querySelector(".ghx-extra-fields");
         }
 
-        const prStatusRows = prs.map(pr => {
+        const prStatusRows = prs.filter(Boolean).map(pr => {
           const reviews = pr.reviews || [];
           const repo = pr.url.split("/").slice(-3)[0];
 

@@ -13,7 +13,65 @@
       </div>
       <h2>Settings</h2>
       <section id="config">
-        <form></form>
+        <form>
+          <fieldset class="GITHUB" style="position: relative;">
+            <legend>Github Token</legend>
+            <label for="GITHUB_TOKEN" >
+              <a href="https://github.com/settings/tokens" target="_blank">
+                Personal Access Token
+              </a>
+              with atleast 'repo' scope
+              <input
+                name="GITHUB_TOKEN"
+                type="text"
+                class="field-value"
+                value=""
+                spellcheck="false"
+              />
+              <button class="validate">
+                Check
+              </button>
+            </label>
+            <div class="status">
+              <div class="initial">
+                Checking token validity and access for Github repos...
+              </div>
+              <div class="result">
+                <table>
+                  <tr class="token-scopes">
+                    <td>Token scopes:</td>
+                    <td><span class="scopes text"></span></td>
+                  </tr>
+                  <tr class="user">
+                    <td>Github User: </td><td><span class="name text"></span></td> 
+                    <td>Number of user repos: </td><td> <span class="repos text"></span></td> 
+                  </tr>
+                  <tr class="org">
+                    <td>Github Org: </td><td><span class="name text"></span></td> 
+                    <td>Number of org repos: </td><td><span class="repos text"></span></td> 
+                  </tr>
+                </table>
+                <div class="errors"></div>
+              </div>
+            </div>
+          </fieldset>
+          <fieldset class="misc">
+            <legend>Misc</legend>
+              <label for="ENABLE_LOG">
+                <input
+                  name="ENABLE_LOG"
+                  type="checkbox"
+                  spellcheck="false"
+                  value="true"
+                  class="ENABLE_LOG"
+                />
+                Enable debug logs
+              </label>
+            </fieldset>
+          </fieldset>
+          <button class="cancel">Cancel</button>
+          <button class="save" default>Save</button>
+        </form>
       </section>
       <script src="script.js"></script>
     </div>

@@ -2,100 +2,73 @@ import { verifyGithubToken } from "../github";
 import makeLogger from "../logger";
 const logger = makeLogger("options");
 
-logger.disableDebug();
-
 const { version } = chrome.runtime.getManifest();
-
-const description = {
-  GITHUB_ACCOUNT: ["Github Account", "GitHub main account name (org or user)"],
-  GITHUB_TOKEN: [
-    "Github Token",
-    "<a href='https://github.com/settings/tokens' target='_blank'>Personal Access Token</a> with atleast 'repo' scope",
-    "",
-    "<div>Checking token validity and access for Github repos ...<br/> Just a sec...<div>",
-  ],
-  JIRA_COLUMNS: [
-    "JIRA Column(s)",
-    `By default all middle columns (other than first and last) are updated.
-    <br/>Override to only update JIRA issues that appear in following columns:`,
-    "",
-    "Column header names</b> separated by comma.<br/>(Preceding or trailing spaces will be trimmed and case will be ignored)",
-  ],
-  URL_PATTERN_FOR_PAGE_ACTION: [
-    "Page Filter",
-    "Url regex to restrict the scope of this extension",
-  ],
-  ENABLE_LOG: ["Advanced", "Enable debug logs"],
-};
-
-const configField = config => (key, attribs = "") => {
-  const [legend, desc, placeholder = "", statusText = ""] = description[key];
-  const value = config[key];
-  return `
-  <fieldset class="${key}">
-    <legend>${legend}</legend>
-    <label for="${key}">${desc}
-    <input ${attribs} name="${key}" type="text" class="field-value" value="${value}" spellcheck="false" placeholder="${placeholder}">
-    </label>
-    <div class="status" name="${key}">${statusText}</div>
-  </fieldset>
-  `;
-};
-
-const configForm = config => {
-  const field = configField(config);
-  return `
-    ${field("GITHUB_ACCOUNT")}
-    ${field("GITHUB_TOKEN")}
-    ${field("JIRA_COLUMNS")}
-    ${field(
-      "ENABLE_LOG",
-      `type=\"checkbox\" ${
-        config.ENABLE_LOG ? "checked" : ""
-      } value=\"true\" class=""`,
-    )}
-
-    <button class="cancel" >Cancel</button>
-    <button class="save" default>Save</button>
-  `;
-};
 
 const populateConfig = config => {
   logger.debug("options page received config from background", { config });
-  // document.querySelector("#config form").innerHTML = configForm(config);
-  document
-    .querySelector("#config form")
-    .insertAdjacentHTML("afterbegin", configForm(config));
+  const ghtInput = document.querySelector("form .GITHUB input");
+  ghtInput.value = config.GITHUB_TOKEN;
 };
 
 const showGithubValidation = async e => {
-  const token = document.querySelector("input[name=GITHUB_TOKEN]").value;
-  const account = document.querySelector("input[name=GITHUB_ACCOUNT]").value;
+  if (e) e.preventDefault();
+  const form = document.querySelector("#config form .GITHUB");
+  const token = form.querySelector("input[name=GITHUB_TOKEN]").value;
 
-  logger.debug("showGithubValidation called.", { account, token });
-  if (!account || !token) return;
+  logger.debug("showGithubValidation called.", { token });
+  if (!token || !token.length) return;
 
-  const statusToken = document.querySelector(".status[name=GITHUB_TOKEN]");
-  statusToken.setAttribute("style", "");
+  const tokenStatusInitial = form.querySelector(".status .initial");
+  const tokenStatusResult = form.querySelector(".status .result");
 
-  const { scopes, user, org } = await verifyGithubToken(account, token);
-  logger.debug({ scopes, user, org });
-  statusToken.setAttribute("style", "animation:none; opacity:1;");
-  const scopeGood = scopes && scopes.includes("repo");
-  const colorUser = typeof user === "string" ? "red" : "initial";
-  const colorOrg = typeof org === "string" ? "red" : "initial";
+  tokenStatusInitial.style.display = "block";
+  tokenStatusResult.style.display = "none";
 
-  statusToken.innerHTML = `
-    <div>Token scopes: <b>${scopes}.</b> 
-      <span style='font-size:large;color:${scopeGood ? "green" : "red"}'>
-        ${scopeGood ? "✓" : "✗"}
-      </span>
-    </div>
-    <div>Number of repos accessible through this token: 
-      <b>User</b>: <span style="color:${colorUser}">${user}. </span>
-      <b>Org</b>: <span style="color:${colorOrg}">${org}.</span>
-    </div>
-  `;
+  const {
+    scopes,
+    username,
+    orgname,
+    orgrepos,
+    userrepos,
+  } = await verifyGithubToken(token);
+  logger.debug({ scopes, username, orgname, userrepos, orgrepos });
+
+  tokenStatusInitial.style.display = "none";
+  tokenStatusResult.style.display = "block";
+
+  const scopesEl = form.querySelector(".result .scopes");
+  scopesEl.innerText = scopes;
+  scopesEl.style.borderColor =
+    scopes && scopes.includes("repo") ? "green" : "red";
+
+  form.querySelector(".result .user .name").innerText = username;
+  form.querySelector(".result .org .name").innerText = orgname;
+
+  const resultUserReposEl = form.querySelector(".result .user .repos");
+  resultUserReposEl.innerText = userrepos.total_count || userrepos.message;
+  resultUserReposEl.style.borderColor =
+    userrepos.total_count > 0 ? "green" : "red";
+
+  const resultOrgReposEl = form.querySelector(".result .org .repos");
+  resultOrgReposEl.innerText = orgrepos.total_count || orgrepos.message;
+  resultOrgReposEl.style.borderColor =
+    orgrepos.total_count > 0 ? "green" : "red";
+
+  const errorMessages = [
+    orgrepos.errors ? orgrepos.errors.length && orgrepos.errors[0].message : "",
+    userrepos.errors
+      ? userrepos.errors.length && userrepos.errors[0].message
+      : "",
+    orgrepos.errors
+      ? "Note: You may have to Enable SSO and/or Authorise the token for accessing repos of this org"
+      : "",
+  ];
+
+  form.querySelector(".result .errors").style.display = errorMessages.join("")
+    .length
+    ? "block"
+    : "none";
+  form.querySelector(".result .errors").innerHTML = errorMessages.join("<br/>");
 };
 
 document.getElementById("version").innerText = version;
@@ -103,12 +76,17 @@ document.getElementById("version").innerText = version;
 window.addEventListener("load", () => {
   chrome.runtime.sendMessage({ action: "sendConfig" }, config => {
     populateConfig(config);
-    logger.enableDebug(config.ENABLE_LOG);
+    logger.setDebug(config.ENABLE_LOG);
 
     document
-      .querySelector("input[name=GITHUB_TOKEN]")
-      .addEventListener("blur", showGithubValidation);
-    setTimeout(showGithubValidation, 10);
+      .querySelector("button.validate")
+      .addEventListener("click", showGithubValidation);
+    if (config.GITHUB_TOKEN.length > 35) setTimeout(showGithubValidation, 1000);
+
+    document.querySelector(".misc input.ENABLE_LOG").checked =
+      config.ENABLE_LOG === true ||
+      (typeof config.ENABLE_LOG === "string" &&
+        config.ENABLE_LOG.toLowerCase() === "true");
   });
 
   document.querySelector("form").addEventListener("submit", function (e) {
@@ -119,7 +97,7 @@ window.addEventListener("load", () => {
         acc[k] = v;
         return acc;
       }, {});
-      logger.debug("Config being sent to background", { config });
+      logger.debug("Config being sent to background", JSON.stringify(config));
       chrome.runtime.sendMessage({ action: "saveConfig", config });
     }
     window.close();

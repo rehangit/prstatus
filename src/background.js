@@ -1,11 +1,9 @@
 import makeLogger from "./logger";
 const logger = makeLogger("bg");
-logger.enableDebug();
 
 const defaultConfig = {
-  GITHUB_ACCOUNT: "",
   GITHUB_TOKEN: "",
-  JIRA_COLUMNS: "Code Review",
+  JIRA_COLUMNS: "",
   URL_PATTERN_FOR_PAGE_ACTION: ".+.atlassian.net/secure/RapidBoard.jspa",
   ENABLE_LOG: false,
 };
@@ -32,7 +30,7 @@ chrome.runtime.onInstalled.addListener(details => {
   localStorage.setItem("PrStatusConfig", JSON.stringify(config));
 
   logger.log("PR Status background", config);
-  logger.enableDebug(config.ENABLE_LOG);
+  logger.setDebug(config.ENABLE_LOG);
 
   resetPageActionRules({ urlMatches: config.URL_PATTERN_FOR_PAGE_ACTION });
   if (details.reason === "install") {
@@ -60,7 +58,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action == "saveConfig") {
     logger.debug("saving config", request.config);
     localStorage.setItem("PrStatusConfig", JSON.stringify(request.config));
-    logger.enableDebug(request.config.ENABLE_LOG);
+    logger.setDebug(request.config.ENABLE_LOG);
   }
 });
 
