@@ -13,46 +13,41 @@ const reviewSortOrder = {
   COMMENTED: 3,
 };
 
-const fetchGithub = (url, token) =>
-  fetch(url, { headers: { Authorization: `token ${token}` } })
-    .then(res => {
-      const headers = {};
-      res.headers.forEach((value, key) => {
-        headers[key] = value;
-      });
-      return res.json().then(json => {
-        json.headers = headers;
-        json.response = res;
-        return json;
-      });
-    })
-    .catch(err => logger.error(err));
-
-const estimateNumberOfRepos = repos => {
-  let pageLast = 0;
+const fetchGithub = async (url, token) => {
   try {
-    pageLast = parseInt(
-      repos.headers &&
-        repos.headers.link &&
-        repos.headers.link.match(/\/repos\?page=(\d+?)>; rel=\"last\"/)[1],
-    );
+    const res = await fetch(url, {
+      headers: { Authorization: `token ${token}` },
+    });
+    const headers = {};
+    res.headers.forEach((value, key) => {
+      headers[key] = value;
+    });
+    const json = await res.json();
+    return {
+      _response: { ...res, headers },
+      ...json,
+    };
   } catch (err) {
-    logger.debug({ err });
+    logger.error(err);
   }
-  logger.debug({ pageLast });
-  return pageLast < 2 || repos.length < 30 ? repos.length : (pageLast - 1) * 30;
 };
 
 export const verifyGithubToken = async token => {
   logger.debug({ token });
+
   const [user, orgs] = await Promise.all([
     fetchGithub("https://api.github.com/user", token),
     fetchGithub("https://api.github.com/user/orgs", token),
   ]);
-  const scopes = user.headers["x-oauth-scopes"];
+
+  const scopes =
+    user._response &&
+    user._response.headers &&
+    user._response.headers["x-oauth-scopes"];
   const username = (user && user.login) || user.message;
   const orgname = (orgs[0] && orgs[0].login) || orgs.message;
   logger.debug({ user, orgs, scopes, orgname });
+
   const [orgrepos, userrepos] = await Promise.all([
     fetchGithub(
       `https://api.github.com/search/repositories?q=org:${orgname}`,

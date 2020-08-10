@@ -2,6 +2,9 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.0/milligram.css">
     <link href="style.css" rel="stylesheet" />
   </head>
   <body>
@@ -14,13 +17,13 @@
       <h2>Settings</h2>
       <section id="config">
         <form>
-          <fieldset class="GITHUB" style="position: relative;">
+          <fieldset class="GITHUB">
             <legend>Github Token</legend>
             <label for="GITHUB_TOKEN" >
+              Personal Access Token with atleast 'repo' scope. Go to 
               <a href="https://github.com/settings/tokens" target="_blank">
-                Personal Access Token
+                Github settings...
               </a>
-              with atleast 'repo' scope
               <input
                 name="GITHUB_TOKEN"
                 type="text"
@@ -28,7 +31,7 @@
                 value=""
                 spellcheck="false"
               />
-              <button class="validate">
+              <button class="button check">
                 Check
               </button>
             </label>
@@ -40,7 +43,7 @@
                 <table>
                   <tr class="token-scopes">
                     <td>Token scopes:</td>
-                    <td><span class="scopes text"></span></td>
+                    <td><span class="scopes text"></span></td><td></td><td></td>
                   </tr>
                   <tr class="user">
                     <td>Github User: </td><td><span class="name text"></span></td> 
@@ -69,8 +72,8 @@
               </label>
             </fieldset>
           </fieldset>
-          <button class="cancel">Cancel</button>
-          <button class="save" default>Save</button>
+          <button class="button cancel">Cancel</button>
+          <button class="button save" default>Save</button>
         </form>
       </section>
       <script src="script.js"></script>

@@ -6,7 +6,7 @@ class Logger {
   setDebug(param) {
     enabled =
       param === true ||
-      (typeof params === "string" && param.toLoweCase() === "true");
+      (typeof param === "string" && param.toLowerCase() === "true");
   }
 
   log(...args) {

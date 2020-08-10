@@ -69,9 +69,8 @@ const refresh = async useCache => {
   const issues = await getJiraIssues(/*config.JIRA_COLUMNS*/);
 
   logger.debug({ issues });
-  logger.log("Total issues to refresh", issues.length);
 
-  return Promise.all(
+  const issuesUpdated = await Promise.all(
     issues &&
       issues.map(async issue => {
         const prs = await getPrsWithReviews(issue);
@@ -140,10 +139,17 @@ const refresh = async useCache => {
         if (elems && elems.length) [...elems].forEach(elem => elem.remove());
 
         extraFieldsNode.insertAdjacentHTML("beforeend", prStatusRows.join(""));
+        return prStatusRows.length > 0;
       }),
   ).finally(() => {
     refreshing = false;
   });
+
+  const updatedCount = issuesUpdated.filter(Boolean).length;
+  logger.log(
+    `Issues found in selected columns: ${issues.length}, updated with pr statuses: ${updatedCount}`,
+  );
+  chrome.runtime.sendMessage({ action: "updateBadge", value: updatedCount });
 };
 
 chrome.runtime.onMessage.addListener(async (request, sender) => {
@@ -179,7 +185,7 @@ const observeCallback = async (mutationsList, observer) => {
   }
 };
 
-if (JIRA_BOARD_ID && JIRA_BOARD_ID.length)
+if (JIRA_BOARD_ID && JIRA_BOARD_ID.length) {
   window.addEventListener("load", async e => {
     logger.debug("content script load");
     await updateConfig().then(refresh);
@@ -205,4 +211,16 @@ if (JIRA_BOARD_ID && JIRA_BOARD_ID.length)
     }
 
     // targetNode.addEventListener("mouseup", throttledRefresh, false);
+
+    window.addEventListener("keydown", event => {
+      if (event.key === "Shift") {
+        chrome.runtime.sendMessage({ action: "shiftPressed" });
+      }
+    });
+    window.addEventListener("keyup", event => {
+      if (event.key === "Shift") {
+        chrome.runtime.sendMessage({ action: "shiftReleased" });
+      }
+    });
   });
+}
