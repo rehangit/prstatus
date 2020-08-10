@@ -4,93 +4,102 @@ const logger = makeLogger("options");
 
 const { version } = chrome.runtime.getManifest();
 
-const populateConfig = config => {
-  logger.debug("options page received config from background", { config });
-  const ghtInput = document.querySelector("form .GITHUB input");
-  ghtInput.value = config.GITHUB_TOKEN;
-};
-
-const showGithubValidation = async e => {
-  if (e) e.preventDefault();
-  const form = document.querySelector("#config form .GITHUB");
-  const token = form.querySelector("input[name=GITHUB_TOKEN]").value;
-
-  logger.debug("showGithubValidation called.", { token });
-  if (!token || !token.length) return;
-
-  const tokenStatusInitial = form.querySelector(".status .initial");
-  const tokenStatusResult = form.querySelector(".status .result");
-
-  tokenStatusInitial.style.display = "block";
-  tokenStatusResult.style.display = "none";
-
-  const {
-    scopes,
-    username,
-    orgname,
-    orgrepos,
-    userrepos,
-  } = await verifyGithubToken(token);
-  logger.debug({ scopes, username, orgname, userrepos, orgrepos });
-
-  tokenStatusInitial.style.display = "none";
-  tokenStatusResult.style.display = "block";
-
-  const scopesEl = form.querySelector(".result .scopes");
-  scopesEl.innerText = scopes;
-  scopesEl.style.borderColor =
-    scopes && scopes.includes("repo") ? "green" : "red";
-
-  form.querySelector(".result .user .name").innerText = username;
-  form.querySelector(".result .org .name").innerText = orgname;
-
-  const resultUserReposEl = form.querySelector(".result .user .repos");
-  resultUserReposEl.innerText = userrepos.total_count || userrepos.message;
-  resultUserReposEl.style.borderColor =
-    userrepos.total_count > 0 ? "green" : "red";
-
-  const resultOrgReposEl = form.querySelector(".result .org .repos");
-  resultOrgReposEl.innerText = orgrepos.total_count || orgrepos.message;
-  resultOrgReposEl.style.borderColor =
-    orgrepos.total_count > 0 ? "green" : "red";
-
-  const errorMessages = [
-    orgrepos.errors ? orgrepos.errors.length && orgrepos.errors[0].message : "",
-    userrepos.errors
-      ? userrepos.errors.length && userrepos.errors[0].message
-      : "",
-    orgrepos.errors
-      ? "Note: You may have to Enable SSO and/or Authorise the token for accessing repos of this org"
-      : "",
-  ];
-
-  form.querySelector(".result .errors").style.display = errorMessages.join("")
-    .length
-    ? "block"
-    : "none";
-  form.querySelector(".result .errors").innerHTML = errorMessages.join("<br/>");
-};
-
 document.getElementById("version").innerText = version;
 
-window.addEventListener("load", () => {
-  chrome.runtime.sendMessage({ action: "sendConfig" }, config => {
-    populateConfig(config);
-    logger.setDebug(config.ENABLE_LOG);
-
-    document
-      .querySelector("button.validate")
-      .addEventListener("click", showGithubValidation);
-    if (config.GITHUB_TOKEN.length > 35) setTimeout(showGithubValidation, 1000);
-
-    document.querySelector(".misc input.ENABLE_LOG").checked =
-      config.ENABLE_LOG === true ||
-      (typeof config.ENABLE_LOG === "string" &&
-        config.ENABLE_LOG.toLowerCase() === "true");
+const sendMessage = async msg =>
+  new Promise(resolve => {
+    chrome.runtime.sendMessage(msg, optionalResponse => {
+      resolve(optionalResponse);
+    });
   });
 
-  document.querySelector("form").addEventListener("submit", function (e) {
-    if (e.submitter.className === "save") {
+window.addEventListener("load", async () => {
+  const config = await sendMessage({ action: "sendConfig" });
+  logger.setDebug(config.ENABLE_LOG);
+  logger.debug("options page received config from background", { config });
+
+  const formEl = document.querySelector("#config form");
+  const githubInputEl = formEl.querySelector("input[name=GITHUB_TOKEN]");
+  const enableLogEl = formEl.querySelector(".misc input.ENABLE_LOG");
+  const statusInitialEl = formEl.querySelector(".status .initial");
+  const statusResultEl = formEl.querySelector(".status .result");
+  const buttonCheckEl = document.querySelector("button.button.check");
+  const scopesEl = statusResultEl.querySelector(".scopes");
+  const userNameEl = statusResultEl.querySelector(".user .name");
+  const orgNameEl = statusResultEl.querySelector(".org .name");
+  const userReposEl = formEl.querySelector(".result .user .repos");
+  const orgReposEl = formEl.querySelector(".result .org .repos");
+  const errorsEl = formEl.querySelector(".result .errors");
+
+  githubInputEl.value = config.GITHUB_TOKEN;
+
+  enableLogEl.checked =
+    config.ENABLE_LOG === true ||
+    (typeof config.ENABLE_LOG === "string" &&
+      config.ENABLE_LOG.toLowerCase() === "true");
+
+  const showGithubValidation = async e => {
+    if (e) e.preventDefault();
+    const token = githubInputEl.value;
+
+    logger.debug("showGithubValidation called.", { token });
+    if (!token || !token.length) return;
+
+    statusInitialEl.style.display = "block";
+    statusResultEl.style.display = "none";
+
+    const {
+      scopes,
+      username,
+      orgname,
+      orgrepos,
+      userrepos,
+    } = await verifyGithubToken(token);
+    logger.debug({ scopes, username, orgname, userrepos, orgrepos });
+
+    statusInitialEl.style.display = "none";
+    statusResultEl.style.display = "block";
+
+    scopesEl.innerText = scopes;
+    scopesEl.style.borderColor =
+      scopes && scopes.includes("repo") ? "green" : "red";
+
+    userNameEl.innerText = username;
+    orgNameEl.innerText = orgname;
+
+    userReposEl.innerText = userrepos.total_count || userrepos.message;
+    orgReposEl.innerText = orgrepos.total_count || orgrepos.message;
+
+    userReposEl.style.borderColor = userrepos.total_count > 0 ? "green" : "red";
+
+    orgReposEl.style.borderColor = orgrepos.total_count > 0 ? "green" : "red";
+
+    const errorMessages = [
+      orgrepos.errors
+        ? orgrepos.errors.length && orgrepos.errors[0].message
+        : "",
+      userrepos.errors
+        ? userrepos.errors.length && userrepos.errors[0].message
+        : "",
+      orgrepos.errors
+        ? "Note: You may have to Enable SSO and/or Authorise the token for accessing repos of this org"
+        : "",
+    ];
+
+    errorsEl.style.display = errorMessages.join("").length ? "block" : "none";
+    errorsEl.innerHTML = errorMessages.join("<br/>");
+  };
+
+  buttonCheckEl.addEventListener("click", showGithubValidation);
+  githubInputEl.addEventListener("keyup", e => {
+    statusResultEl.style.display = "none";
+  });
+
+  // if (config.GITHUB_TOKEN.length > 35) setTimeout(showGithubValidation, 1000);
+
+  formEl.addEventListener("submit", async e => {
+    logger.debug("option form being submitted", e);
+    if (e.submitter.className.includes("save")) {
       const config = Array.from(
         new FormData(document.querySelector("form")),
       ).reduce((acc, [k, v]) => {
@@ -98,7 +107,7 @@ window.addEventListener("load", () => {
         return acc;
       }, {});
       logger.debug("Config being sent to background", JSON.stringify(config));
-      chrome.runtime.sendMessage({ action: "saveConfig", config });
+      await sendMessage({ action: "saveConfig", config });
     }
     window.close();
   });

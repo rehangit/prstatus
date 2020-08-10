@@ -3,6 +3,7 @@ const logger = makeLogger("fetch");
 
 const fetchCache = {};
 export const cachedFetch = async (url, params = {}, forceCache = false) => {
+  logger.debug("cachedFetch:", { url, params, forceCache });
   if (
     fetchCache[url] &&
     fetchCache[url].res &&
@@ -12,11 +13,12 @@ export const cachedFetch = async (url, params = {}, forceCache = false) => {
     logger.debug(url, "Cached used count:", fetchCache[url].count);
     return fetchCache[url].res;
   }
+  // const response = await fetch(url, params).catch(err => {
   const response = await fetch(url, {
     ...params,
     cache: forceCache ? "force-cache" : "default",
   }).catch(err => {
-    logger.error(err);
+    logger.error("cachedFetch failed:", { url, params, forceCache }, err);
     return null;
   });
 

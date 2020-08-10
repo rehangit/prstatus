@@ -1,5 +1,17 @@
-h1 {
-  margin: 20px 0px;
+body {
+  font-size: 1.6em;
+}
+
+input[type="checkbox"] {
+  transform: scale(1.5);
+  vertical-align: text-top;
+}
+
+.icon {
+  position: absolute;
+  top: 0px;
+  right: 1em;
+  height: 100px;
 }
 
 h2 {
@@ -9,17 +21,17 @@ h2 {
 #version {
   color: slategray;
   margin-top: -20px;
+  font-size: medium;
 }
 
 #version::before {
   content: "Version: ";
 }
 
-.icon {
-  position: absolute;
-  top: 0px;
-  right: 0px;
-  height: 64px;
+.container {
+  max-width: 768px;
+  margin: 100px auto auto auto;
+  position: relative;
 }
 
 form {
@@ -29,16 +41,10 @@ form {
 }
 
 form fieldset {
-  margin: 12px 0px;
+  margin: 1em 0;
   display: block;
-}
-
-form fieldset .field-value {
-  display: block;
-  width: 500px;
-  font-family: monospace;
-  font-size: large;
-  margin: 4px 0;
+  border: solid 1px rgba(0, 0, 0, 0.2);
+  padding: 1em;
 }
 
 form fieldset legend {
@@ -48,10 +54,16 @@ form fieldset legend {
   border-radius: 3px;
 }
 
-.container {
-  max-width: 520px;
-  margin: auto;
+form fieldset.GITHUB label {
   position: relative;
+}
+
+form fieldset input.field-value {
+  display: block;
+  width: 100%;
+  font-family: monospace;
+  font-size: x-large;
+  font-weight: normal;
 }
 
 .header {
@@ -64,27 +76,46 @@ form fieldset legend {
   }
 }
 
-button {
+button,
+.button {
   min-width: 10em;
+  background-image: none;
+  font-weight: normal;
+  font-size: medium;
+}
+
+button.check {
+  position: absolute;
+  top: 27px;
+  right: 0;
+  height: 36px;
+  min-width: 0;
+}
+
+button.check:hover {
+  background-image: null;
+  background-color: #0074ff;
 }
 
 button.save {
   float: right;
 }
 
-button.save:hover {
+button:hover {
   color: white;
   text-shadow: none;
-  background: #02ba01;
+  background-image: none;
+}
+
+button.save:hover {
+  background: green;
 }
 
 button.cancel {
   float: left;
 }
 button.cancel:hover {
-  color: white;
-  text-shadow: none;
-  background: pink;
+  background: red;
 }
 
 .JIRA_COLUMNS .status {
@@ -101,12 +132,12 @@ button.cancel:hover {
 }
 
 form fieldset.GITHUB .status {
-  min-height: 4em;
+  min-height: 9em;
 }
 
 form fieldset.GITHUB .status .initial {
   display: none;
-  animation: animate-opacity 1s alternate infinite;
+  animation: animate-opacity 500ms linear alternate infinite;
 }
 
 form fieldset.GITHUB .status .result {
@@ -114,20 +145,11 @@ form fieldset.GITHUB .status .result {
   animation: none;
 }
 
-button.validate {
-  position: absolute;
-  float: right;
-  top: 48px;
-  right: 12px;
-  border-radius: 5px;
-  padding: 2px 6px;
-}
-
 .result .text {
   font-family: monospace;
-  font-size: 14px;
+  font-size: 16px;
   background: #fafafa;
-  padding: 0 4px;
+  padding: 6px 10px;
   border-radius: 4px;
   border: 1px solid rgba(0, 0, 0, 0.2);
   margin: 0 4px;
@@ -142,6 +164,7 @@ button.validate {
 
 .misc .ENABLE_LOG {
   margin-right: 4px;
+  display: inline-block;
 }
 
 form .result table tr th {
