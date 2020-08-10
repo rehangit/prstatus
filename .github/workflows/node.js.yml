@@ -29,11 +29,11 @@ jobs:
         run: echo ::set-env name=VERSION_MANIFEST::$(node extract-version.js)
 
       - name: Test the version vars
-        - run: |
-          echo VERSION_TAG:$VERSION_TAG 
-          echo VERSION_MANIFEST:$VERSION_MANIFEST
+        run: |
+          echo VERSION_TAG=$VERSION_TAG 
+          echo VERSION_MANIFEST=$VERSION_MANIFEST
           echo $VERSION_TAG == $VERSION_MANIFEST
-        - if: ${{ env.VERSION_TAG == env.VERSION_MANIFEST }}
+          $VERSION_TAG == $VERSION_MANIFEST
 
       - name: Add version to zip file name
         run: mv prstatus.zip prstatus-${{env.VERSION_TAG}}.zip
