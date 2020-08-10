@@ -22,18 +22,22 @@ jobs:
       - run: npm run build
       - run: npm run zip
 
-      - name: Set env var
-        run: echo ::set-env name=RELEASE_VERSION::${GITHUB_REF#refs/*/}
-      - name: Test the version var
+      - name: Set env var to tag version
+        run: echo ::set-env name=VERSION_TAG::${GITHUB_REF#refs/*/}
+
+      - name: Set env var to manifest version
+        run: echo ::set-env name=VERSION_MANIFEST::$(pcregrep -o1 "\"version\"\s?:\s?\"(\d+\.\d+\.\d+)\"" src/manifest.json)
+
+      - name: Test the version vars
         run: |
-          echo $RELEASE_VERSION
-          echo ${{ env.RELEASE_VERSION }}
+          echo VERSION_TAG:$VERSION_TAG === VERSION_MANIFEST:$VERSION_MANIFEST
+          if: ${{ env.VERSION_TAG == env.VERSION_MANIFEST }}
 
       - name: Add version to zip file name
-        run: mv prstatus.zip prstatus-${{env.RELEASE_VERSION}}.zip
+        run: mv prstatus.zip prstatus-${{env.VERSION_TAG}}.zip
 
       - uses: meeDamian/github-release@2.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          files: ./prstatus-${{env.RELEASE_VERSION}}.zip
+          files: ./prstatus-${{env.VERSION_TAG}}.zip
           gzip: false
