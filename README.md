@@ -22,7 +22,12 @@ To configure the extension please provide your Github token in the Options page:
 
 **Gihub Token:** Generate a github personal access token from https://github.com/settings/tokens. This token should at least have 'repo' scopes.
 
-Once entered, press the Check button to validate the token. It should show the result of validation below the token input area. the token has correct scopes. 
+Once entered, press the Check button to validate the token. It should show the result of validation below the token input area. If the token does not have correct scopes or access to the repos, errors will be displayed. 
+
+## Pre-requisites
+
+- Github integration for JIRA to be working.
+- The token to be authorized for access to organization repos using SSO
 
 ## JIRA Column  
 
