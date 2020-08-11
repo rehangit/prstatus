@@ -6,5 +6,4 @@ dist
 .env
 .pem
 .crx
-.zip
-prstatus.zip
+*.zip

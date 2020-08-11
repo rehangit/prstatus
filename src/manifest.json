@@ -4,7 +4,7 @@
   "version": "0.3.0",
   "background": { "scripts": ["background.js"], "persistent": false },
   "permissions": [
-    "tabs",
+    "activeTab",
     "https://*.atlassian.net/*",
     "https://api.github.com/*"
   ],

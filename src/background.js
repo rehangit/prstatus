@@ -6,6 +6,7 @@ const defaultConfig = {
   JIRA_COLUMNS: "",
   URL_PATTERN_FOR_PAGE_ACTION: ".+.atlassian.net/secure/RapidBoard.jspa",
   ENABLE_LOG: false,
+  AUTO_UPDATE: true,
 };
 
 const readConfig = () => {
@@ -15,18 +16,32 @@ const readConfig = () => {
 };
 
 let isShiftPressed = false;
+
 const knownTabs = {};
-const addKnownTab = (tabId, url) => {
+let autoUpdateInterval;
+const updateKnownTabs = (tabId, url) => {
   const config = readConfig();
-  setTimeout(() => chrome.tabs.sendMessage(tabId, "refresh"), 2000);
-  if (!knownTabs[tabId] && url.match(config.URL_PATTERN_FOR_PAGE_ACTION)) {
+  const matchedUrl = url && url.match(config.URL_PATTERN_FOR_PAGE_ACTION);
+
+  if (autoUpdateInterval) {
+    clearInterval(autoUpdateInterval);
+    autoUpdateInterval = null;
+    logger.debug("auto update cleared");
+  }
+
+  if (matchedUrl || knownTabs[tabId]) {
+    setTimeout(() => chrome.tabs.sendMessage(tabId, "refresh"), 2000);
     knownTabs[tabId] = true;
-    // knownTabs[tabId] = {
-    //   intervalId: setInterval(
-    //     () => chrome.tabs.sendMessage(tabId, "refresh"),
-    //     2 * 10 * 1000,
-    //   ),
-    // };
+  } else {
+    knownTabs[tabId] = false;
+  }
+
+  if (config.AUTO_UPDATE && knownTabs[tabId]) {
+    autoUpdateInterval = setInterval(
+      () => chrome.tabs.sendMessage(tabId, "refresh"),
+      2 * 10 * 1000,
+    );
+    logger.debug("auto update setup to refresh");
   }
 };
 
@@ -133,27 +148,25 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
       changeInfo,
       tab,
     });
-    const { URL_PATTERN_FOR_PAGE_ACTION } = readConfig();
-    if (tab && tab.url && tab.url.match(URL_PATTERN_FOR_PAGE_ACTION)) {
-      addKnownTab(tabId, tab.url);
-      logger.debug(
-        "chrome.tabs.onUpdated.addListener sending message to tab",
-        tabId,
-      );
-      chrome.tabs.sendMessage(tabId, "refresh");
+    updateKnownTabs(tabId, tab.url);
+    if (!tab || !tab.url) {
+      logger.error("No url match found for tabId:", tabId);
     }
   }
 });
 
 chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
   logger.debug("tab activated", tabId, knownTabs);
+
   if (knownTabs[tabId]) {
     chrome.browserAction.enable(tabId);
     chrome.browserAction.setBadgeText({ tabId, text: "" });
-    chrome.tabs.sendMessage(tabId, "refresh");
+    logger.debug(`tab:${tabId} already known. enabling ext.`);
   } else {
     logger.debug(`tab:${tabId} not known. disabling ext on it.`);
     chrome.browserAction.disable(tabId);
   }
+
+  updateKnownTabs(tabId);
   isShiftPressed = false;
 });

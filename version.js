@@ -1,2 +1,2 @@
 const manifest = require("./src/manifest.json");
-console.log(manifest.version);
+console.log(`v${manifest.version}`);

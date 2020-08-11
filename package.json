@@ -4,21 +4,26 @@
   "description": "",
   "main": "src/manifest.json",
   "scripts": {
+    "prebuild": "rm -fr dist",
     "build": "cross-env NODE_ENV=production parcel build src/manifest.json",
     "dev": "cross-env NODE_ENV=development parcel src/manifest.json --no-hmr",
-    "zip:src": "rm prstatus.zip && zip -x \"**/.DS_Store\" -r prstatus.zip src",
-    "zip": "npm run build && rm -f prstatus.zip && cd dist && zip -r ../prstatus.zip *"
+    "start:firefox": "web-ext run -s ./dist/",
+    "zip:src": "rm -f prstatus_src*.zip && zip prstatus-src-$(node version.js).zip -r src/* assets/* *.js package* *.md",
+    "zip:firefox": "web-ext build --overwrite-dest -s ./dist",
+    "prezip": "npm run build && rm -f prstatus-*.zip",
+    "zip": "cd dist && zip -r ../prstatus-$(node ../version.js).zip *"
   },
-  "author": "",
+  "author": "Rehan Ahmad",
   "license": "ISC",
   "dependencies": {},
   "devDependencies": {
-    "@types/chrome": "0.0.114",
+    "@types/chrome": "0.0.122",
     "cross-env": "^7.0.2",
     "parcel-bundler": "^1.12.4",
-    "parcel-plugin-web-extension": "^1.6.1"
+    "parcel-plugin-web-extension": "^1.6.1",
+    "web-ext": "^5.0.0"
   },
   "browserslist": [
-    "last 1 Chrome version"
+    "last 2 Chrome versions, last 2 Firefox versions"
   ]
 }
