@@ -15,7 +15,9 @@
   },
   "author": "Rehan Ahmad",
   "license": "ISC",
-  "dependencies": {},
+  "dependencies": {
+    "lodash.uniqby": "^4.7.0"
+  },
   "devDependencies": {
     "@types/chrome": "0.0.122",
     "cross-env": "^7.0.2",

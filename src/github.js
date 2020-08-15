@@ -2,15 +2,20 @@ import makeLogger from "./logger";
 const logger = makeLogger("github");
 
 import { cachedFetch } from "./cachedFetch";
-import { uniqBy } from "./utils";
+import uniqBy from "lodash.uniqby";
 
 global.prStatus = global.prStatus || {};
 global.prStatus.config = global.prStatus.config || {};
 
-const reviewSortOrder = {
-  APPROVED: 1,
-  CHANGES_REQUESTED: 2,
-  COMMENTED: 3,
+const reviewSortOrder = (a, b) => {
+  const order = state =>
+    ({
+      APPROVED: 1,
+      CHANGES_REQUESTED: 2,
+      DISMISSED: 3,
+      COMMENTED: 3,
+    }[state] || 0);
+  return order(a.state) - +order(b.state);
 };
 
 const fetchGithub = async (url, token) => {
@@ -103,22 +108,25 @@ export const getPrsWithReviews = async (issue, useCache) => {
       const url = pr.url
         .replace("https://github.com/", "https://api.github.com/repos/")
         .replace("/pull/", "/pulls/");
-      const reviews = await cachedFetch(`${url}/reviews`, params);
-      if (!(reviews instanceof Array)) {
-        logger.error(reviews.message);
+      const reviewsResponse = await cachedFetch(`${url}/reviews`, params);
+      if (!(reviewsResponse instanceof Array)) {
+        logger.error(reviewsResponse.message);
         return;
       }
-
+      const reviewsNotAuthor = reviewsResponse.filter(
+        r => r.user.login !== pr.author.name,
+      );
+      const reviewsSorted = reviewsNotAuthor.reverse().sort(reviewSortOrder);
+      const reviews = uniqBy(reviewsSorted, "user.id");
+      logger.debug("reviews for pr", pr.id, {
+        reviewsResponse,
+        reviewsNotAuthor,
+        reviewsSorted,
+        reviews,
+      });
       return {
         ...pr,
-        reviews: uniqBy(
-          reviews
-            .reverse()
-            .sort(
-              (a, b) => reviewSortOrder[a.state] - reviewSortOrder[b.state],
-            ),
-          r => r.user.id,
-        ),
+        reviews,
       };
     }),
   );

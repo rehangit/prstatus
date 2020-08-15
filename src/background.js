@@ -6,43 +6,30 @@ const defaultConfig = {
   JIRA_COLUMNS: "",
   URL_PATTERN_FOR_PAGE_ACTION: ".+.atlassian.net/secure/RapidBoard.jspa",
   ENABLE_LOG: false,
-  AUTO_UPDATE: true,
+  AUTO_UPDATE: false,
+  AUTO_UPDATE_INTERVAL: 60 * 1000,
 };
+
+let isShiftPressedCs = false;
+let isShiftPressedBg = false;
+let autoUpdateInterval = null;
+const knownTabs = {};
 
 const readConfig = () => {
   const localStorageConfig =
     JSON.parse(localStorage.getItem("PrStatusConfig") || null) || defaultConfig;
+  if (localStorageConfig)
+    Object.keys(localStorageConfig).forEach(k => {
+      const value = localStorageConfig[k];
+      const strValue = typeof value === "string" && value.toLowerCase();
+      if (strValue === "true") {
+        localStorageConfig[k] = true;
+      }
+      if (strValue === "false") {
+        localStorageConfig[k] = false;
+      }
+    });
   return localStorageConfig;
-};
-
-let isShiftPressed = false;
-
-const knownTabs = {};
-let autoUpdateInterval;
-const updateKnownTabs = (tabId, url) => {
-  const config = readConfig();
-  const matchedUrl = url && url.match(config.URL_PATTERN_FOR_PAGE_ACTION);
-
-  if (autoUpdateInterval) {
-    clearInterval(autoUpdateInterval);
-    autoUpdateInterval = null;
-    logger.debug("auto update cleared");
-  }
-
-  if (matchedUrl || knownTabs[tabId]) {
-    setTimeout(() => chrome.tabs.sendMessage(tabId, "refresh"), 2000);
-    knownTabs[tabId] = true;
-  } else {
-    knownTabs[tabId] = false;
-  }
-
-  if (config.AUTO_UPDATE && knownTabs[tabId]) {
-    autoUpdateInterval = setInterval(
-      () => chrome.tabs.sendMessage(tabId, "refresh"),
-      2 * 10 * 1000,
-    );
-    logger.debug("auto update setup to refresh");
-  }
 };
 
 chrome.runtime.onInstalled.addListener(details => {
@@ -57,6 +44,10 @@ chrome.runtime.onInstalled.addListener(details => {
   if (details.reason === "install") {
     chrome.tabs.create({ url: "options/index.html" });
   }
+
+  if (process.env.NODE_ENV === "development") {
+    chrome.browserAction.setIcon({ path: "icons/icon-local.png" });
+  }
 });
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -69,6 +60,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       const config = readConfig();
       logger.debug("sending config", config);
       sendResponse(config);
+      knownTabs[sender.tab.id] = true;
       break;
     }
 
@@ -81,11 +73,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 
     case "shiftPressed":
-      isShiftPressed = true;
+      isShiftPressedCs = true;
       break;
 
     case "shiftReleased":
-      isShiftPressed = false;
+      isShiftPressedCs = false;
       break;
 
     case "updateBadge":
@@ -101,15 +93,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
-let bgIsShiftPressed = false;
 window.addEventListener("keydown", event => {
   if (event.key === "Shift") {
-    bgIsShiftPressed = true;
+    isShiftPressedBg = true;
   }
 });
 window.addEventListener("keyup", event => {
   if (event.key === "Shift") {
-    bgIsShiftPressed = false;
+    isShiftPressedBg = false;
   }
 });
 
@@ -118,20 +109,20 @@ chrome.browserAction.onClicked.addListener((tab, clickData) => {
   logger.debug("Browser action on click handler", {
     tab,
     clickData,
-    isShiftPressed,
-    bgIsShiftPressed,
+    isShiftPressedCs,
+    isShiftPressedBg,
   });
 
-  if (tab && tab.url.match(URL_PATTERN_FOR_PAGE_ACTION)) {
+  if (tab) {
     const isShift =
       (clickData &&
         clickData.modifiers &&
         clickData.modifiers.includes("Shift")) ||
-      isShiftPressed ||
-      bgIsShiftPressed;
+      isShiftPressedCs ||
+      isShiftPressedBg;
     if (isShift) {
       chrome.tabs.create({ url: "options/index.html" });
-      isShiftPressed = false;
+      isShiftPressedCs = false;
     } else {
       logger.debug("refreshing: ", tab);
       chrome.tabs.sendMessage(tab.id, "refresh");
@@ -139,34 +130,70 @@ chrome.browserAction.onClicked.addListener((tab, clickData) => {
   }
 });
 
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  logger.debug("onUpdated", changeInfo.status || tab.status, { tabId, tab });
+const onTabActivated = tabId => {
+  logger.debug("onTabActivated", { tabId });
 
+  if (tabId) {
+    setTimeout(() => {
+      logger.debug("refresh for tabId", tabId);
+      chrome.tabs.sendMessage(tabId, "refresh");
+    }, 100);
+    logger.debug(`Enabling extension for tab:${tabId}.`);
+  }
+
+  if (autoUpdateInterval) {
+    clearInterval(autoUpdateInterval);
+    autoUpdateInterval = null;
+    logger.debug("Auto update cleared");
+  }
+
+  const { AUTO_UPDATE, AUTO_UPDATE_INTERVAL } = readConfig();
+  if (AUTO_UPDATE && tabId) {
+    autoUpdateInterval = setInterval(() => {
+      logger.debug("auto refresh called for tabId", tabId);
+      chrome.tabs.sendMessage(tabId, "refresh");
+    }, AUTO_UPDATE_INTERVAL);
+    logger.debug("auto update resumed for tabId:", tabId);
+  }
+
+  if (tabId && knownTabs[tabId]) {
+    chrome.browserAction.enable(tabId);
+  } else {
+    chrome.browserAction.disable(tabId);
+  }
+};
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  logger.debug("onUpdated", { tabId, changeInfo, tab });
   if (changeInfo.status === "complete" || tab.status === "complete") {
-    logger.debug("chrome.tabs.onUpdated.addListener", {
-      tabId,
-      changeInfo,
-      tab,
-    });
-    updateKnownTabs(tabId, tab.url);
-    if (!tab || !tab.url) {
-      logger.error("No url match found for tabId:", tabId);
+    if (tab.url || knownTabs[tabId]) {
+      knownTabs[tabId] = true;
+      onTabActivated(tabId);
     }
   }
 });
 
-chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
-  logger.debug("tab activated", tabId, knownTabs);
+chrome.tabs.onActivated.addListener(async ({ tabId, windowId }) => {
+  let isActive = false;
+  const isKnown = knownTabs[tabId];
+  logger.debug("onActivated", { tabId, windowId, isKnown });
 
-  if (knownTabs[tabId]) {
-    chrome.browserAction.enable(tabId);
-    chrome.browserAction.setBadgeText({ tabId, text: "" });
-    logger.debug(`tab:${tabId} already known. enabling ext.`);
-  } else {
-    logger.debug(`tab:${tabId} not known. disabling ext on it.`);
-    chrome.browserAction.disable(tabId);
+  onTabActivated(isKnown ? tabId : null);
+  isShiftPressedCs = false;
+  isShiftPressedBg = false;
+});
+
+const clearUp = () => {
+  if (autoUpdateInterval) {
+    clearInterval(autoUpdateInterval);
+    autoUpdateInterval = null;
+    logger.debug("Auto update cleared");
   }
+  isShiftPressedBg = false;
+  isShiftPressedCs = false;
+};
 
-  updateKnownTabs(tabId);
-  isShiftPressed = false;
+chrome.tabs.onRemoved.addListener(tabId => {
+  if (knownTabs[tabId]) clearUp();
+  knownTabs[tabId] = false;
 });

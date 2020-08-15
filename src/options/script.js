@@ -82,7 +82,7 @@ window.addEventListener("load", async () => {
         ? userrepos.errors.length && userrepos.errors[0].message
         : "",
       orgrepos.errors
-        ? "Note: You may have to Enable SSO and/or Authorise the token for accessing repos of this org"
+        ? "Note: You may have to Authorise the token (via enabling SSO) for accessing repos of this org"
         : "",
     ];
 

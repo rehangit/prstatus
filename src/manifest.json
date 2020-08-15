@@ -1,7 +1,7 @@
 {
   "name": "PR Status",
   "description": "Show Github PR Review Approval status in the cards on a Jira board",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "background": { "scripts": ["background.js"], "persistent": false },
   "permissions": [
     "activeTab",
@@ -9,6 +9,7 @@
     "https://api.github.com/*"
   ],
   "browser_action": {
+    "default_icon": "icons/icon-active.png",
     "default_title": "PR Status"
   },
   "content_scripts": [
@@ -19,7 +20,6 @@
   ],
   "icons": { "640": "icons/logo-640.png", "128": "icons/icon-active.png" },
   "options_ui": {
-    "chrome_style": true,
     "page": "options/index.html",
     "open_in_tab": true
   },
