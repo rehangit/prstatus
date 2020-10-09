@@ -5,8 +5,6 @@ import { delayedFetch } from "./delayedFetch";
 
 export const getJiraIssues = async columns => {
   const JIRA_BOARD_ORIGIN = window.location.origin;
-  const JIRA_BOARD_ID = window.location.search.match("rapidView=([0-9]+)")[1];
-  const JIRA_BASE_URL = `${JIRA_BOARD_ORIGIN}/rest/agile/1.0/board/${JIRA_BOARD_ID}`;
   const JIRA_DEV_URL = `${JIRA_BOARD_ORIGIN}/rest/dev-status/1.0/issue/details?issueId=`;
 
   const boardColumns = Array.from(
