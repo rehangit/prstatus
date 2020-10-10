@@ -36,18 +36,21 @@ const prAttr = (state, attr) => {
       text: "Open",
       color: "#28a745",
       svg: `<svg width="14" height="14" style="vertical-align: text-top" viewBox="0 0 16 16" version="1.1" aria-hidden="true"><path fill-rule="evenodd" d="M7.177 3.073L9.573.677A.25.25 0 0110 .854v4.792a.25.25 0 01-.427.177L7.177 3.427a.25.25 0 010-.354zM3.75 2.5a.75.75 0 100 1.5.75.75 0 000-1.5zm-2.25.75a2.25 2.25 0 113 2.122v5.256a2.251 2.251 0 11-1.5 0V5.372A2.25 2.25 0 011.5 3.25zM11 2.5h-1V4h1a1 1 0 011 1v5.628a2.251 2.251 0 101.5 0V5A2.5 2.5 0 0011 2.5zm1 10.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0zM3.75 12a.75.75 0 100 1.5.75.75 0 000-1.5z"></path></svg>`,
+      width: 50,
     },
     merged: {
       text: "Merged",
       color: "#6f42c1",
       svg: `<svg width="14" height="14" style="vertical-align: text-top" viewBox="0 0 16 16" version="1.1" aria-hidden="true"><path fill-rule="evenodd" d="M5 3.254V3.25v.005a.75.75 0 110-.005v.004zm.45 1.9a2.25 2.25 0 10-1.95.218v5.256a2.25 2.25 0 101.5 0V7.123A5.735 5.735 0 009.25 9h1.378a2.251 2.251 0 100-1.5H9.25a4.25 4.25 0 01-3.8-2.346zM12.75 9a.75.75 0 100-1.5.75.75 0 000 1.5zm-8.5 4.5a.75.75 0 100-1.5.75.75 0 000 1.5z"></path></svg>`,
+      width: 65,
     },
     closed: {
       text: "Closed",
       color: "#d73a49",
       svg: `<svg width="14" height="14" style="vertical-align: text-top"  viewBox="0 0 16 16" version="1.1" aria-hidden="true"><path fill-rule="evenodd" d="M7.177 3.073L9.573.677A.25.25 0 0110 .854v4.792a.25.25 0 01-.427.177L7.177 3.427a.25.25 0 010-.354zM3.75 2.5a.75.75 0 100 1.5.75.75 0 000-1.5zm-2.25.75a2.25 2.25 0 113 2.122v5.256a2.251 2.251 0 11-1.5 0V5.372A2.25 2.25 0 011.5 3.25zM11 2.5h-1V4h1a1 1 0 011 1v5.628a2.251 2.251 0 101.5 0V5A2.5 2.5 0 0011 2.5zm1 10.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0zM3.75 12a.75.75 0 100 1.5.75.75 0 000-1.5z"></path></svg>`,
+      width: 65,
     },
-    default: { text: state, color: "gray", imageUrl: "" },
+    default: { text: state, color: "gray", svg: "" },
   };
   return (attribs[state] || attribs.default)[attr];
 };
@@ -107,6 +110,7 @@ const refresh = async useCache => {
           const imageUrl = prAttr(status, "imageUrl");
           const svg = prAttr(status, "svg");
           const text = prAttr(status, "text");
+          const width = prAttr(status, "width");
 
           return `
             <div class="ghx-row prstatus-row" style="position:relative; max-width: 100%; line-height:1.85em; max-height:1.85em; font-size: smaller">
@@ -115,12 +119,14 @@ const refresh = async useCache => {
                 target="_blank"
                 onclick="arguments[0].stopPropagation()"
                 title="${pr.name}"
-                style="padding:2px 1px 3px 2px; border-radius:4px; text-decoration: none; color: white; background:${color}; fill: white"
+                style="padding:2px 1px 3px 2px; border-radius:4px; text-decoration: none; color: white; background:${color}; fill: white; vertical-align:top"
               >
                 ${svg}
                 <span style="margin-left: -1px;">${text}</span>
               </a>
-              <span style="overflow-text:ellipsis; margin-left: 2px;">${repo}</span>
+              <span style="display:inline-block;text-overflow:ellipsis; margin-left: 2px; max-width:calc(100% - ${
+                reviews.length * 16 + width
+              }px); overflow:hidden;">${repo}</span>
               <span style="position:absolute; right:0">
                 ${reviews
                   .map(r => {
