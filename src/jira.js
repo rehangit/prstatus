@@ -56,7 +56,15 @@ export const getJiraIssues = async columns => {
                 .flat()
                 .filter(Boolean)) ||
             [];
-          return { ...i, prs };
+          const noprs =
+            (res &&
+              res.detail
+                .filter(d => !d.pullRequests || !d.pullRequests.length)
+                .map(d => d.branches)
+                .flat()
+                .filter(Boolean)) ||
+            [];
+          return { ...i, prs, noprs };
         },
       ),
     ),
