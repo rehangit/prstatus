@@ -139,3 +139,14 @@ export const getPrsWithReviews = async (issue, useCache) => {
   );
   return prsWithReviews;
 };
+
+export const getOpenPrs = async (projectKey, account) => {
+  const { GITHUB_TOKEN } = prStatus.config;
+
+  const oepnResponse = await fetchGithub(
+    `https://api.github.com/search/issues?q=${projectKey}-+org:${account}+is:open&per_page=100`,
+    GITHUB_TOKEN,
+  );
+
+  return oepnResponse && oepnResponse.items;
+};

@@ -15,7 +15,8 @@
   "content_scripts": [
     {
       "matches": ["https://*.atlassian.net/secure/RapidBoard.jspa?*"],
-      "js": ["contentscript.js"]
+      "js": ["contentscript.js"],
+      "css": ["contentstyle.css"]
     }
   ],
   "icons": { "640": "icons/logo-640.png", "128": "icons/icon-active.png" },

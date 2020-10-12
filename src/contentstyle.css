@@ -1,0 +1,38 @@
+.prstatus-row {
+  position: relative;
+  line-height: 1.65em;
+  font-size: smaller;
+}
+
+.prstatus-row a {
+  padding: 2px 1px 3px 2px;
+  border-radius: 4px;
+  text-decoration: none;
+  vertical-align: top;
+}
+
+.prstatus-row a:hover {
+  border-bottom: 1px black solid;
+  box-sizing: border-box;
+}
+
+.prstatus-row .repo {
+  display: inline-block;
+  text-overflow: ellipsis;
+  margin-left: 2px;
+  overflow: hidden;
+}
+
+.prstatus-row .create {
+  vertical-align: top;
+  float: right;
+  border: lightgray 1px solid;
+  border-radius: 4px;
+  background-color: #deebff;
+  padding: 0 4px;
+  color: gray;
+}
+
+.prstatus-row .create:hover {
+  border-bottom-color: black;
+}
