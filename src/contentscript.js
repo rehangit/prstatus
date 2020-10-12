@@ -24,6 +24,8 @@ const updateConfig = async () => {
 };
 
 const svgIcon = {
+  DISMISSED:
+    '<svg style="background:#aeb6c1; padding: 2px; border-radius: 20px;" fill="white" width="12" height="12" viewBox="0 0 16 16" version="1.1" aria-hidden="true"><path fill-rule="evenodd" d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z"></path></svg>',
   APPROVED:
     '<svg style="background:#28a745; padding: 2px; border-radius: 20px;" fill="white" width="12" height="12" viewBox="0 0 16 16" version="1.1" aria-hidden="true"><path fill-rule="evenodd" d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"></path></svg>',
   COMMENTED:
@@ -59,27 +61,43 @@ const attribs = {
 
 let refreshing = false;
 const refresh = async useCache => {
+  let JIRA_PROJECT_KEY;
+
+  try {
+    JIRA_BOARD_ID = window.location.search.match("rapidView=([0-9]+)")[1];
+    JIRA_PROJECT_KEY = window.location.search.match("projectKey=([A-Z]+)")[1];
+  } catch (err) {}
+
+  if (!JIRA_BOARD_ID || !JIRA_BOARD_ID.length) {
+    refreshing = false;
+    logger.log("refresh aborted: jira board id not available in the url", {
+      ...config,
+      search: window.location.search,
+    });
+    return;
+  }
+
+  const config = prStatus.config;
+  logger.debug("refresh triggered", config);
+  if (!config.GITHUB_TOKEN || !config.GITHUB_TOKEN.length) {
+    logger.error("refresh aborted: no github token", config);
+    refreshing = false;
+    return;
+  }
+
+  let GITHUB_ACCOUNT = config.GITHUB_ACCOUNT;
+
   if (refreshing) {
     logger.debug("Already refreshing...");
     return;
   }
   refreshing = true;
 
-  JIRA_BOARD_ID = window.location.search.match("rapidView=([0-9]+)")[1];
-  let JIRA_PROJECT_KEY = window.location.search.match("projectKey=([A-Z]+)")[1];
-
-  const config = prStatus.config;
-  logger.debug("refresh triggered", config);
-  if (!config.GITHUB_TOKEN || !config.GITHUB_TOKEN.length) {
-    logger.error("refresh aborted: no github token", config);
-    return;
-  }
-
-  let GITHUB_ACCOUNT = config.GITHUB_ACCOUNT;
-
   const issues = await getJiraIssues();
 
   logger.debug({ issues });
+
+  let issuesUpdated = [];
 
   if (issues.length) {
     if (!JIRA_PROJECT_KEY || !JIRA_PROJECT_KEY.length) {
@@ -87,61 +105,59 @@ const refresh = async useCache => {
     }
 
     if (!GITHUB_ACCOUNT || !GITHUB_ACCOUNT.length) {
-      GITHUB_ACCOUNT = issues[0].prs.length
-        ? issues[0].prs[0].url.split("/").slice(-4)[0]
-        : issues[0].noprs[0].repository.url.split("/").slice(-4)[0];
+      const prs = issues[0].prs || issues[0].noprs;
+      GITHUB_ACCOUNT = prs && prs.length && prs[0].url.split("/").slice(-4)[0];
     }
-  }
 
-  logger.debug("extracted details", {
-    JIRA_BOARD_ID,
-    JIRA_PROJECT_KEY,
-    GITHUB_ACCOUNT,
-  });
+    logger.debug("extracted details", {
+      JIRA_BOARD_ID,
+      JIRA_PROJECT_KEY,
+      GITHUB_ACCOUNT,
+    });
 
-  const openPrs =
-    JIRA_PROJECT_KEY && JIRA_PROJECT_KEY.length
-      ? await getOpenPrs(JIRA_PROJECT_KEY, GITHUB_ACCOUNT)
-      : [];
-  logger.debug("all open prs from github", { openPrs });
+    const openPrs =
+      JIRA_PROJECT_KEY && JIRA_PROJECT_KEY.length
+        ? await getOpenPrs(JIRA_PROJECT_KEY, GITHUB_ACCOUNT)
+        : [];
+    logger.debug("all open prs from github", { openPrs });
 
-  const issuesUpdated = await Promise.all(
-    issues &&
-      issues.map(async issue => {
-        const issueNode = document.querySelector(
-          `.ghx-issue[data-issue-id='${issue.id}']`,
-        );
-        if (!issueNode) return;
-        let extraFieldsNode = issueNode.querySelector(".ghx-extra-fields");
-        if (!extraFieldsNode) {
-          logger.debug(
-            "No extra fields node to inject. Adding section.",
-            issue.key,
+    issuesUpdated = await Promise.all(
+      issues &&
+        issues.map(async issue => {
+          const issueNode = document.querySelector(
+            `.ghx-issue[data-issue-id='${issue.id}']`,
           );
-          const lastSection = issueNode.querySelectorAll(
-            "section:last-of-type",
-          )[0];
-          lastSection.insertAdjacentHTML(
-            "beforebegin",
-            "<section class='ghx-extra-fields'></section>",
-          );
-          extraFieldsNode = issueNode.querySelector(".ghx-extra-fields");
-        }
+          if (!issueNode) return null;
+          let extraFieldsNode = issueNode.querySelector(".ghx-extra-fields");
+          if (!extraFieldsNode) {
+            logger.debug(
+              "No extra fields node to inject. Adding section.",
+              issue.key,
+            );
+            const lastSection = issueNode.querySelectorAll(
+              "section:last-of-type",
+            )[0];
+            lastSection.insertAdjacentHTML(
+              "beforebegin",
+              "<section class='ghx-extra-fields'></section>",
+            );
+            extraFieldsNode = issueNode.querySelector(".ghx-extra-fields");
+          }
 
-        const htmlToInsert = ({
-          url,
-          repo,
-          text,
-          name,
-          svg,
-          color,
-          width = 0,
-          length = 0,
-          fill = "white",
-          right,
-        }) => {
-          const maxWidth = `calc(100% - ${length + width}px)`;
-          return `
+          const htmlToInsert = ({
+            url,
+            repo,
+            text,
+            name,
+            svg,
+            color,
+            width = 0,
+            length = 0,
+            fill = "white",
+            right,
+          }) => {
+            const maxWidth = `calc(100% - ${length + width}px)`;
+            return `
             <div class="ghx-row prstatus-row" style="max-height:1.85em">
               <a
                 href="${url}"
@@ -161,30 +177,30 @@ const refresh = async useCache => {
               ${right}
             </div>
           `;
-        };
+          };
 
-        const prs = await getPrsWithReviews(issue);
-        const prStatusRows = prs.filter(Boolean).map(pr => {
-          const reviews = pr.reviews || [];
-          const status =
-            pr.status === "DECLINED"
-              ? "closed"
-              : openPrs.find(
-                  open =>
-                    open.draft &&
-                    [open.title, open.body]
-                      .join("\n")
-                      .toLowerCase()
-                      .includes(issue.key.toLowerCase()),
-                )
-              ? "draft"
-              : pr.status.toLowerCase();
-          return htmlToInsert({
-            ...pr,
-            ...attribs[status],
-            repo: pr.url.split("/").slice(-3)[0],
-            length: reviews.length * 16,
-            right: `
+          const prs = await getPrsWithReviews(issue);
+          const prStatusRows = prs.filter(Boolean).map(pr => {
+            const reviews = pr.reviews || [];
+            const status =
+              pr.status === "DECLINED"
+                ? "closed"
+                : openPrs.find(
+                    open =>
+                      open.draft &&
+                      [open.title, open.body]
+                        .join("\n")
+                        .toLowerCase()
+                        .includes(issue.key.toLowerCase()),
+                  )
+                ? "draft"
+                : pr.status.toLowerCase();
+            return htmlToInsert({
+              ...pr,
+              ...attribs[status],
+              repo: pr.url.split("/").slice(-3)[0],
+              length: reviews.length * 16,
+              right: `
               <span style="position:absolute; right:0">
                 ${reviews
                   .map(r => {
@@ -198,16 +214,16 @@ const refresh = async useCache => {
                   .join("")}
               </span>
             `,
+            });
           });
-        });
-        const noprStatusRows = issue.noprs.filter(Boolean).map(nopr => {
-          logger.log("NOPR", { issue, nopr });
-          const repo = nopr.repository.url.split("/").slice(-1)[0];
-          return htmlToInsert({
-            ...nopr,
-            ...attribs["branch"],
-            repo,
-            right: `
+          const noprStatusRows = issue.noprs.filter(Boolean).map(nopr => {
+            logger.log("NOPR", { issue, nopr });
+            const repo = nopr.repository.url.split("/").slice(-1)[0];
+            return htmlToInsert({
+              ...nopr,
+              ...attribs["branch"],
+              repo,
+              right: `
               <a 
                 href="${nopr.createPullRequestUrl}"
                 target="_blank"
@@ -217,27 +233,27 @@ const refresh = async useCache => {
                 style="text-decoration: none"
               >Create PR</a>
             `,
+            });
           });
-        });
 
-        const rows = [...prStatusRows, ...noprStatusRows];
+          const rows = [...prStatusRows, ...noprStatusRows];
 
-        const elems = extraFieldsNode.querySelectorAll(".prstatus-row");
-        if (elems && elems.length) [...elems].forEach(elem => elem.remove());
+          const elems = extraFieldsNode.querySelectorAll(".prstatus-row");
+          if (elems && elems.length) [...elems].forEach(elem => elem.remove());
 
-        rows.length &&
-          extraFieldsNode.insertAdjacentHTML("beforeend", rows.join(""));
-        return rows.length > 0;
-      }),
-  ).finally(() => {
-    refreshing = false;
-  });
+          rows.length &&
+            extraFieldsNode.insertAdjacentHTML("beforeend", rows.join(""));
+          return rows.length > 0;
+        }),
+    );
+  }
 
   const updatedCount = issuesUpdated.filter(Boolean).length;
   logger.log(
     `Issues found in selected columns: ${issues.length}, updated with pr statuses: ${updatedCount}`,
   );
   chrome.runtime.sendMessage({ action: "updateBadge", value: updatedCount });
+  refreshing = false;
 };
 
 chrome.runtime.onMessage.addListener(async (request, sender) => {

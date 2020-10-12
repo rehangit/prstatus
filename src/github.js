@@ -146,7 +146,7 @@ export const getOpenPrs = async (projectKey, account) => {
   const oepnResponse = await fetchGithub(
     `https://api.github.com/search/issues?q=${projectKey}-+org:${account}+is:open&per_page=100`,
     GITHUB_TOKEN,
-  );
+  ).catch(() => ({ items: [] }));
 
-  return oepnResponse && oepnResponse.items;
+  return (oepnResponse && oepnResponse.items) || [];
 };
