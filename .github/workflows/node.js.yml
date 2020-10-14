@@ -19,11 +19,9 @@ jobs:
           node-version: 12.x
 
       - name: Set env var to tag version
-        # run: echo ::set-env name=VERSION_TAG::${GITHUB_REF#refs/*/}
         run: echo "{VERSION_TAG}={${GITHUB_REF#refs/*/}}" >> $GITHUB_ENV
 
       - name: Set env var to manifest version
-        # run: echo ::set-env name=VERSION_MANIFEST::$(node version.js)
         run: echo "{VERSION_MANIFEST}={$(node version.js)}" >> $GITHUB_ENV
 
       - name: Ensure tag version matches the manifest version
@@ -40,5 +38,5 @@ jobs:
       - uses: meeDamian/github-release@2.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          files: ./prstatus-${{ env.VERSION_MANIFEST }}.zip
+          files: ./prstatus-$VERSION_MANIFEST.zip
           gzip: false
