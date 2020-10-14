@@ -12,7 +12,7 @@ global.prStatus = global.prStatus || {};
 global.prStatus.config = global.prStatus.config = {};
 const prStatus = global.prStatus;
 
-let JIRA_BOARD_ID = window.location.search.match("rapidView=([0-9]+)")[1];
+let JIRA_BOARD_ID;
 
 const updateConfig = async () => {
   const config = await new Promise(resolve =>
@@ -289,8 +289,9 @@ const observeCallback = async (mutationsList, observer) => {
   }
 };
 
-if (JIRA_BOARD_ID && JIRA_BOARD_ID.length) {
-  window.addEventListener("load", async e => {
+window.addEventListener("load", async e => {
+  JIRA_BOARD_ID = window.location.search.match("rapidView=([0-9]+)")[1];
+  if (JIRA_BOARD_ID && JIRA_BOARD_ID.length) {
     logger.debug("content script load");
     await updateConfig().then(refresh);
     logger.debug("content script refreshed with config", prStatus.config);
@@ -326,5 +327,5 @@ if (JIRA_BOARD_ID && JIRA_BOARD_ID.length) {
         chrome.runtime.sendMessage({ action: "shiftReleased" });
       }
     });
-  });
-}
+  }
+});

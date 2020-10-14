@@ -137,7 +137,7 @@ const onTabActivated = tabId => {
     setTimeout(() => {
       logger.debug("refresh for tabId", tabId);
       chrome.tabs.sendMessage(tabId, "refresh");
-    }, 100);
+    }, 1000);
     logger.debug(`Enabling extension for tab:${tabId}.`);
   }
 
