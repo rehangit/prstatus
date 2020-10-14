@@ -19,17 +19,19 @@ jobs:
           node-version: 12.x
 
       - name: Set env var to tag version
-        run: echo ::set-env name=VERSION_TAG::${GITHUB_REF#refs/*/}
+        # run: echo ::set-env name=VERSION_TAG::${GITHUB_REF#refs/*/}
+        run: echo "{VERSION_TAG}={${GITHUB_REF#refs/*/}}" >> $GITHUB_ENV
 
       - name: Set env var to manifest version
-        run: echo ::set-env name=VERSION_MANIFEST::$(node version.js)
+        # run: echo ::set-env name=VERSION_MANIFEST::$(node version.js)
+        run: echo "{VERSION_MANIFEST}={$(node version.js)}" >> $GITHUB_ENV
 
       - name: Ensure tag version matches the manifest version
         run: |
           echo VERSION_TAG=$VERSION_TAG 
           echo VERSION_MANIFEST=$VERSION_MANIFEST
           echo $VERSION_TAG == $VERSION_MANIFEST
-          [ "$VERSION_TAG" = "$VERSION_MANIFEST" ]
+          [ "${VERSION_TAG/-rc*/}" = "$VERSION_MANIFEST" ]
 
       - run: npm ci
       - run: npm run build
