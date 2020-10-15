@@ -24,9 +24,9 @@ For firefox version of the package replace the last command to `npm run zip:fire
 A chrome extension to show the Github PR Review statuses in the cards on a JIRA board.
 
 - For every PR associated with the JIRA ticket It adds a line of info: 
-  - PR Status (Open|Merged|Closed)
+  - PR Status (Branch|Draft|Open|Merged|Closed)
   - Name of the repo 
-  - Latest update of the reviews from each user
+  - Latest update of the reviews from each reviewer
 - The PR Status icons (Open or Merged) can be clicked to open the PR in Github. 
 - Status is automatically updated but can be manually refreshed by clicking on the extension icon (or by reloading the page).
 
@@ -57,14 +57,16 @@ In future it may allow more fine tuning / customization to restrict columns that
 
 LATEST UPDATES:
 
+- v1.0.0
+  - add support for DISMISSED review status 
+  - support draft status (fixes #11) 
+  - support for branch status
+  - fix overlap of review status icons over repo name 
+  - use svg icons 
+
 - v0.3.0
   - Refactored to be compatible with firefox
   - Show updated count as badge on icon
   - Refresh on tab activated
   - Optimised permissions
   - Bug fixes
-- v0.2.5
-  - Validation of the token and error handling
-- v0.2.3
-  - Allow any number of tickets to be updated. Previous limit of 20 fixed
-  - Bug fixes related to refreshing on board change
