@@ -119,7 +119,8 @@ const refresh = async useCache => {
       JIRA_PROJECT_KEY && JIRA_PROJECT_KEY.length
         ? await getOpenPrs(JIRA_PROJECT_KEY, GITHUB_ACCOUNT)
         : [];
-    logger.debug("all open prs from github", { openPrs });
+    const draftPrs = openPrs.filter(pr => pr.draft);
+    logger.debug("all open prs from github", { openPrs, draftPrs });
 
     issuesUpdated = await Promise.all(
       issues &&
@@ -185,14 +186,7 @@ const refresh = async useCache => {
             const status =
               pr.status === "DECLINED"
                 ? "closed"
-                : openPrs.find(
-                    open =>
-                      open.draft &&
-                      [open.title, open.body]
-                        .join("\n")
-                        .toLowerCase()
-                        .includes(issue.key.toLowerCase()),
-                  )
+                : !!draftPrs.find(d => d.title === pr.name)
                 ? "draft"
                 : pr.status.toLowerCase();
             return htmlToInsert({
