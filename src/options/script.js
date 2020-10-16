@@ -94,6 +94,14 @@ window.addEventListener("load", async () => {
   githubInputEl.addEventListener("keyup", e => {
     statusResultEl.style.display = "none";
   });
+  githubInputEl.addEventListener("focus", e => {
+    console.log("removing password attribute");
+    githubInputEl.setAttribute("type", "text");
+  });
+  githubInputEl.addEventListener("blur", e => {
+    console.log("adding password attribute back");
+    githubInputEl.setAttribute("type", "password");
+  });
 
   // if (config.GITHUB_TOKEN.length > 35) setTimeout(showGithubValidation, 1000);
 
