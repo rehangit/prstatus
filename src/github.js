@@ -19,22 +19,7 @@ const reviewSortOrder = (a, b) => {
 };
 
 const fetchGithub = async (url, token) => {
-  try {
-    const res = await fetch(url, {
-      headers: { Authorization: `token ${token}` },
-    });
-    const headers = {};
-    res.headers.forEach((value, key) => {
-      headers[key] = value;
-    });
-    const json = await res.json();
-    return {
-      _response: { ...res, headers },
-      ...json,
-    };
-  } catch (err) {
-    logger.error(err);
-  }
+  return cachedFetch(url, { headers: { Authorization: `token ${token}` } });
 };
 
 export const verifyGithubToken = async token => {
@@ -46,22 +31,22 @@ export const verifyGithubToken = async token => {
   ]);
 
   const scopes =
-    user._response &&
-    user._response.headers &&
-    user._response.headers["x-oauth-scopes"];
+    user.response && user.headers && user.headers["x-oauth-scopes"];
   const username = (user && user.login) || user.message;
   const orgname = (orgs[0] && orgs[0].login) || orgs.message;
   logger.debug({ user, orgs, scopes, orgname });
 
   const [orgrepos, userrepos] = await Promise.all([
-    fetchGithub(
-      `https://api.github.com/search/repositories?q=org:${orgname}`,
-      token,
-    ),
-    fetchGithub(
-      `https://api.github.com/search/repositories?q=user:${username}`,
-      token,
-    ),
+    orgname &&
+      fetchGithub(
+        `https://api.github.com/search/repositories?q=org:${orgname}`,
+        token,
+      ),
+    username &&
+      fetchGithub(
+        `https://api.github.com/search/repositories?q=user:${username}`,
+        token,
+      ),
   ]);
   logger.debug({ orgrepos, userrepos });
 
@@ -143,10 +128,19 @@ export const getPrsWithReviews = async (issue, useCache) => {
 export const getOpenPrs = async (projectKey, account) => {
   const { GITHUB_TOKEN } = prStatus.config;
 
-  const oepnResponse = await fetchGithub(
-    `https://api.github.com/search/issues?q=${projectKey}-+org:${account}+is:open&per_page=100`,
-    GITHUB_TOKEN,
-  ).catch(() => ({ items: [] }));
+  const [orgPrs, userPrs] = await Promise.all([
+    fetchGithub(
+      `https://api.github.com/search/issues?q=${projectKey}-+org:${account}+is:open&per_page=100`,
+      GITHUB_TOKEN,
+    ).catch(() => ({ items: [] })),
+    fetchGithub(
+      `https://api.github.com/search/issues?q=${projectKey}-+user:${account}+is:open&per_page=100`,
+      GITHUB_TOKEN,
+    ).catch(() => ({ items: [] })),
+  ]);
 
-  return (oepnResponse && oepnResponse.items) || [];
+  return [
+    ...((orgPrs && orgPrs.items) || []),
+    ...((userPrs && userPrs.items) || []),
+  ];
 };
