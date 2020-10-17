@@ -9,7 +9,7 @@ export const delayedFetch = async (url, params = {}, total = 20) => {
     setTimeout(async () => {
       try {
         const result = await cachedFetch(url, params);
-        logger.debug(delay, url.split("=")[1], result.detail);
+        logger.debug("delayedFetch", url, { delay, result });
         resolve(result);
       } catch (err) {
         reject(err);
