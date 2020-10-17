@@ -28,7 +28,7 @@
   float: right;
   border: lightgray 1px solid;
   border-radius: 4px;
-  background-color: #deebff;
+  background-color: transparent;
   padding: 0 4px;
   color: gray;
 }
