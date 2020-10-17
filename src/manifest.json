@@ -3,11 +3,6 @@
   "description": "Show Github PR Review Approval status in the cards on a Jira board",
   "version": "1.0.1",
   "background": { "scripts": ["background.js"], "persistent": false },
-  "permissions": [
-    "activeTab",
-    "https://*.atlassian.net/*",
-    "https://api.github.com/*"
-  ],
   "browser_action": {
     "default_icon": "icons/icon-active.png",
     "default_title": "PR Status"
@@ -25,5 +20,6 @@
     "open_in_tab": true
   },
   "web_accessible_resources": ["icons/*.png"],
-  "manifest_version": 2
+  "manifest_version": 2,
+  "permissions": ["activeTab", "https://*.atlassian.net/*"]
 }

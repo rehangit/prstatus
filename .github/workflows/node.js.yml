@@ -34,9 +34,12 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm run zip
+      - run: npm run zip:firefox
 
       - uses: meeDamian/github-release@2.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          files: ./prstatus-${{ env.VERSION_MANIFEST }}.zip
+          files: >
+            .artefacts/prstatus-${{ env.VERSION_MANIFEST }}.zip
+            .artefacts/prstatus-firefox-${{ env.VERSION_MANIFEST }}.zip
           gzip: false

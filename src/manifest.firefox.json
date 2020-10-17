@@ -1,0 +1,8 @@
+{
+  "permissions": [
+    "activeTab",
+    "tabs",
+    "https://*.atlassian.net/*",
+    "https://api.github.com/*"
+  ]
+}
