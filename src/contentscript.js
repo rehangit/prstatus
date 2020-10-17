@@ -210,8 +210,8 @@ const refresh = async useCache => {
             `,
             });
           });
-          const noprStatusRows = issue.noprs.filter(Boolean).map(nopr => {
-            logger.log("NOPR", { issue, nopr });
+          const noprStatusRows = issue.noprs.map(nopr => {
+            logger.log("issue with noprs", { issue });
             const repo = nopr.repository.url.split("/").slice(-1)[0];
             return htmlToInsert({
               ...nopr,
@@ -224,7 +224,7 @@ const refresh = async useCache => {
                 onclick="arguments[0].stopPropagation()"
                 title="Create a PR on the associated branch"
                 class="create"
-                style="text-decoration: none"
+                style="text-decoration: none; font-size: xx-small"
               >Create PR</a>
             `,
             });

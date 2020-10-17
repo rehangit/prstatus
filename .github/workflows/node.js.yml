@@ -31,15 +31,19 @@ jobs:
           echo ${VERSION_TAG/-rc*/} == $VERSION_MANIFEST
           [ "${VERSION_TAG/-rc*/}" = "$VERSION_MANIFEST" ]
 
-      - run: npm ci
-      - run: npm run build
-      - run: npm run zip
-      - run: npm run zip:firefox
+      - name: Build artefacts
+        run: |
+          npm ci
+          npm run build
+          npm run zip
+          npm run zip:firefox
+          mv .artefacts/prstatus-${{ env.VERSION_MANIFEST }}.zip .artefacts/prstatus-${{ env.VERSION_TAG }}.zip
+          mv .artefacts/prstatus-firefox-${{ env.VERSION_MANIFEST }}.zip .artefacts/prstatus-firefox-${{ env.VERSION_TAG }}.zip
 
       - uses: meeDamian/github-release@2.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           files: >
-            .artefacts/prstatus-${{ env.VERSION_MANIFEST }}.zip
-            .artefacts/prstatus-firefox-${{ env.VERSION_MANIFEST }}.zip
+            .artefacts/prstatus-${{ env.VERSION_TAG }}.zip
+            .artefacts/prstatus-firefox-${{ env.VERSION_TAG }}.zip
           gzip: false

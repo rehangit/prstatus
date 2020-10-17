@@ -46,28 +46,40 @@ export const getJiraIssues = async columns => {
   logger.debug("activeIssues", activeIssues);
 
   const issuesWithPullRequests = await Promise.all(
-    activeIssues.map(i =>
-      delayedFetch(`${JIRA_DEV_URL}${i.id}`, {}, activeIssues.length).then(
-        res => {
-          const prs =
-            (res &&
-              res.detail
-                .map(d => d.pullRequests)
-                .flat()
-                .filter(Boolean)) ||
-            [];
-          const noprs =
-            (res &&
-              res.detail
-                .filter(d => !d.pullRequests || !d.pullRequests.length)
-                .map(d => d.branches)
-                .flat()
-                .filter(Boolean)) ||
-            [];
-          return { ...i, prs, noprs };
-        },
-      ),
-    ),
+    activeIssues.map(async i => {
+      const res = await delayedFetch(
+        `${JIRA_DEV_URL}${i.id}`,
+        {},
+        activeIssues.length,
+      );
+
+      logger.debug("issuesWithPullRequests", `${JIRA_DEV_URL}${i.id}`, res);
+
+      if (!res || !res.detail) return i;
+
+      const prs =
+        res.detail
+          .map(d => d.pullRequests)
+          .flat()
+          .filter(Boolean) || [];
+
+      const noprs =
+        res.detail
+          .map(d => {
+            const prBranches =
+              (d.pullRequests && d.pullRequests.map(pr => pr.source.branch)) ||
+              [];
+            return (
+              (d.branches &&
+                d.branches.filter(b => !prBranches.includes(b.name))) ||
+              []
+            );
+          })
+          .flat()
+          .filter(Boolean) || [];
+
+      return { ...i, prs, noprs };
+    }),
   );
 
   logger.debug("issues from jira with prs", issuesWithPullRequests);
