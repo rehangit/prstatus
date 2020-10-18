@@ -14,9 +14,16 @@ npm install
 npm run build
 npm run zip
 ```
-This produces a versioned zip file in the root folder, that can be uploaded to chrome store.
+This produces a versioned zip file in the `.artefacts` folder, that can be uploaded to chrome store.
 
-For firefox version of the package replace the last command to `npm run zip:firefox`. The firefox package is produced in the folder `web-ext-artifacts`.
+For firefox version of the package replace the last command to `npm run zip:firefox`. The firefox package is produced in the `.artefacts` folder that can be uploaded to firefox store as a new version.
+
+
+## Releases
+
+Although binary releases can be produced locally, it is preferable to allow the Github Actions to produce a release and use the binaries listed in the github release.
+
+Github release is automatically triggered when a version tag is pushed.
 
 
 # Store Listing Description
