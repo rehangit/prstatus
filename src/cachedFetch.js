@@ -2,23 +2,17 @@ import makeLogger from "./logger";
 const logger = makeLogger("fetch");
 
 const fetchCache = {};
-export const cachedFetch = async (url, params = {}, forceCache = false) => {
-  logger.debug("cachedFetch:", { url, params, forceCache });
-  if (
-    fetchCache[url] &&
-    fetchCache[url].res &&
-    (!fetchCache[url].expired || forceCache)
-  ) {
+export const cachedFetch = async (url, params = {}, ttl = 2 * 60 * 1000) => {
+  logger.debug("cachedFetch:", { url, params, ttl });
+
+  if (fetchCache[url] && fetchCache[url].res && !fetchCache[url].expired) {
     fetchCache[url].count++;
     logger.debug(url, "Cached used count:", fetchCache[url].count);
     return fetchCache[url].res;
   }
-  // const response = await fetch(url, params).catch(err => {
-  const response = await fetch(url, {
-    ...params,
-    cache: forceCache ? "force-cache" : "default",
-  }).catch(err => {
-    logger.error("cachedFetch failed:", { url, params, forceCache }, err);
+
+  const response = await fetch(url, params).catch(err => {
+    logger.error("cachedFetch failed:", { url, params, ttl }, err);
     return null;
   });
 
@@ -44,6 +38,7 @@ export const cachedFetch = async (url, params = {}, forceCache = false) => {
   fetchCache[url] = { res, count: 0, expired: false };
   setTimeout(() => {
     fetchCache[url].expired = true;
-  }, 120000);
+  }, ttl);
+
   return res;
 };

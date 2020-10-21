@@ -18,9 +18,8 @@ const reviewSortOrder = (a, b) => {
   return order(a.state) - +order(b.state);
 };
 
-const fetchGithub = async (url, token) => {
-  return cachedFetch(url, { headers: { Authorization: `token ${token}` } });
-};
+const fetchGithub = async (url, token) =>
+  cachedFetch(url, { headers: { Authorization: `token ${token}` } }, 0);
 
 export const verifyGithubToken = async token => {
   logger.debug({ token });
@@ -51,36 +50,6 @@ export const verifyGithubToken = async token => {
   logger.debug({ orgrepos, userrepos });
 
   return { username, orgname, scopes, orgrepos, userrepos };
-};
-
-const searchPrsFast = async issues => {
-  const { GITHUB_ACCOUNT, GITHUB_TOKEN } = prStatus.config;
-  const headers = { Authorization: `token ${GITHUB_TOKEN}` };
-  const searchPrs = url => cachedFetch(url, { headers }).then(r => r.items);
-
-  const prefix = issues[0].key.split("-")[0];
-  const from = issues[0].created.split("T")[0];
-  const baseUrl = `https://api.github.com/search/issues?sort=updated&order=desc&per_page=100&q=is:pr+org:${GITHUB_ACCOUNT}+created:>=${from}`;
-
-  const [prsTitle = [], prsBranch = []] = await Promise.all([
-    searchPrs(`${baseUrl}+in:title+${prefix}`),
-    searchPrs(`${baseUrl}+head:${prefix}`),
-  ]);
-  logger.debug({ prsTitle, prsBranch });
-  const searchResults = uniqBy(
-    [...prsTitle, ...prsBranch].filter(Boolean),
-    "id",
-  );
-  logger.debug({ searchResults });
-  const prsInSearchResults = issues.reduce((acc, issue) => {
-    const prs = searchResults.filter(res => res.title.includes(issue.key));
-    acc[issue.key] = { ...issue, prs };
-    return acc;
-  }, {});
-
-  logger.debug({ prsInSearchResults });
-
-  return prsInSearchResults;
 };
 
 export const getPrsWithReviews = async (issue, useCache) => {
@@ -127,6 +96,14 @@ export const getPrsWithReviews = async (issue, useCache) => {
 
 export const getOpenPrs = async (projectKey, account) => {
   const { GITHUB_TOKEN } = prStatus.config;
+
+  const fetchWithLongCache = url =>
+    cachedFetch(
+      url,
+      { headers: { Authorization: `token ${token}` } },
+      true,
+      15 * 60 * 1000,
+    );
 
   const [orgPrs, userPrs] = await Promise.all([
     fetchGithub(
