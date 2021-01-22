@@ -321,5 +321,8 @@ window.addEventListener("load", async e => {
         chrome.runtime.sendMessage({ action: "shiftReleased" });
       }
     });
+
+    const refreshNow = document.querySelector(".js-refresh-now");
+    if (refreshNow) refresh.addEventListener("click", throttledRefresh, false);
   }
 });
