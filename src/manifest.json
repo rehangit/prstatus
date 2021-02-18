@@ -9,7 +9,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://*.atlassian.net/secure/RapidBoard.jspa?*"],
+      "matches": ["https://*.atlassian.net/jira/software/projects/*/boards/*"],
       "js": ["contentscript.js"],
       "css": ["contentstyle.css"]
     }

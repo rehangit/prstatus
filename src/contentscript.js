@@ -64,8 +64,8 @@ const refresh = async useCache => {
   let JIRA_PROJECT_KEY;
 
   try {
-    JIRA_BOARD_ID = window.location.search.match("rapidView=([0-9]+)")[1];
-    JIRA_PROJECT_KEY = window.location.search.match("projectKey=([A-Z]+)")[1];
+    JIRA_BOARD_ID = window.location.href.match("boards/([0-9]+)")[1];
+    JIRA_PROJECT_KEY = window.location.href.match("projects/([A-Z]+)/")[1];
   } catch (err) {}
 
   if (!JIRA_BOARD_ID || !JIRA_BOARD_ID.length) {
@@ -126,7 +126,7 @@ const refresh = async useCache => {
       issues &&
         issues.map(async issue => {
           const issueNode = document.querySelector(
-            `.ghx-issue[data-issue-id='${issue.id}']`,
+            `div[data-rbd-draggable-id='ISSUE::${issue.id}']`,
           );
           if (!issueNode) return null;
           let extraFieldsNode = issueNode.querySelector(".ghx-extra-fields");
@@ -135,13 +135,16 @@ const refresh = async useCache => {
               "No extra fields node to inject. Adding section.",
               issue.key,
             );
-            const lastSection = issueNode.querySelectorAll(
-              "section:last-of-type",
-            )[0];
+
+            const lastSection = issueNode.querySelector(
+              "[data-test-id*='card.focus-container']",
+            ).firstChild.lastChild;
+
             lastSection.insertAdjacentHTML(
-              "beforebegin",
-              "<section class='ghx-extra-fields'></section>",
+              "afterend",
+              "<div class='ghx-extra-fields'></div>",
             );
+
             extraFieldsNode = issueNode.querySelector(".ghx-extra-fields");
           }
 
@@ -284,7 +287,7 @@ const observeCallback = async (mutationsList, observer) => {
 };
 
 window.addEventListener("load", async e => {
-  JIRA_BOARD_ID = window.location.search.match("rapidView=([0-9]+)")[1];
+  JIRA_BOARD_ID = window.location.href.match("boards/([0-9]+)")[1];
   if (JIRA_BOARD_ID && JIRA_BOARD_ID.length) {
     logger.debug("content script load");
     await updateConfig().then(refresh);

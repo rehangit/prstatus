@@ -8,11 +8,13 @@ export const getJiraIssues = async columns => {
   const JIRA_DEV_URL = `${JIRA_BOARD_ORIGIN}/rest/dev-status/1.0/issue/details?issueId=`;
 
   const boardColumns = Array.from(
-    document.querySelectorAll(".ghx-column-headers li.ghx-column"),
+    document.querySelectorAll(`div[data-rbd-draggable-id^="COLUMN"]`),
   ).map(col => ({
-    id: col.dataset.id,
-    name: col.querySelector("[data-tooltip]").dataset.tooltip.toLowerCase(),
+    id: col.dataset.rbdDraggableId,
+    name: col.querySelector(`[class*="column-title"]`).innerText.toLowerCase(),
   }));
+
+  logger.log(boardColumns);
 
   const columnIdToName = boardColumns.reduce(
     (acc, col) => ({ ...acc, [col.id]: col.name }),
@@ -27,13 +29,13 @@ export const getJiraIssues = async columns => {
   logger.debug({ activeColumnNames });
 
   const issuesOnBoard = [
-    ...document.querySelectorAll(".ghx-column[data-column-id]"),
+    ...document.querySelectorAll(`div[data-rbd-draggable-id^="COLUMN"]`),
   ]
     .map(col =>
-      [...col.querySelectorAll("[data-issue-id")].map(issue => ({
-        id: issue.dataset.issueId,
-        key: issue.dataset.issueKey,
-        columnName: columnIdToName[col.dataset.columnId],
+      [...col.querySelectorAll(`[id^="card-"]`)].map(issue => ({
+        id: issue.dataset.rbdDraggableId.split("::")[1],
+        key: issue.id.split("-")[1],
+        columnName: columnIdToName[col.dataset.rbdDraggableId],
       })),
     )
     .flat();

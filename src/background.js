@@ -4,7 +4,8 @@ const logger = makeLogger("bg");
 const defaultConfig = {
   GITHUB_TOKEN: "",
   JIRA_COLUMNS: "",
-  URL_PATTERN_FOR_PAGE_ACTION: ".+.atlassian.net/secure/RapidBoard.jspa",
+  URL_PATTERN_FOR_PAGE_ACTION:
+    ".+.atlassian.net/jira/software/projects/[A-Z]+/boards/\\d",
   ENABLE_LOG: false,
   AUTO_UPDATE: false,
   AUTO_UPDATE_INTERVAL: 60 * 1000,
