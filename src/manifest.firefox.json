@@ -3,6 +3,7 @@
     "activeTab",
     "tabs",
     "https://*.atlassian.net/*",
+    "https://*.jira.com/*",
     "https://api.github.com/*"
   ]
 }

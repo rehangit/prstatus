@@ -9,7 +9,10 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://*.atlassian.net/secure/RapidBoard.jspa?*"],
+      "matches": [
+        "https://*.atlassian.net/secure/RapidBoard.jspa?*",
+        "https://*.jira.com/secure/RapidBoard.jspa?*"
+      ],
       "js": ["contentscript.js"],
       "css": ["contentstyle.css"]
     }
@@ -21,5 +24,9 @@
   },
   "web_accessible_resources": ["icons/*.png"],
   "manifest_version": 2,
-  "permissions": ["activeTab", "https://*.atlassian.net/*"]
+  "permissions": [
+    "activeTab",
+    "https://*.atlassian.net/*",
+    "https://*.jira.com/*"
+  ]
 }
