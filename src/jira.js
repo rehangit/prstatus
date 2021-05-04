@@ -67,11 +67,10 @@ export const getJiraIssues = async columns => {
         res.detail
           .map(d => {
             const prBranches =
-              (d.pullRequests && d.pullRequests.map(pr => pr.source.branch)) ||
-              [];
+              (d.pullRequests && d.pullRequests.map(pr => pr.source.url)) || [];
             return (
               (d.branches &&
-                d.branches.filter(b => !prBranches.includes(b.name))) ||
+                d.branches.filter(b => !prBranches.includes(b.url))) ||
               []
             );
           })
