@@ -25,10 +25,11 @@
   },
   "devDependencies": {
     "@types/chrome": "0.0.122",
+    "browserslist": "^4.16.6",
     "cross-env": "^7.0.3",
     "parcel-bundler": "^1.12.5",
     "parcel-plugin-web-extension": "^1.6.1",
-    "web-ext": "^5.5.0"
+    "web-ext": "^6.1.0"
   },
   "browserslist": [
     "last 2 Chrome versions, last 2 Firefox versions"

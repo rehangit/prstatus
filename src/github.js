@@ -35,7 +35,7 @@ export const verifyGithubToken = async token => {
   const orgname = (orgs[0] && orgs[0].login) || orgs.message;
   logger.debug({ user, orgs, scopes, orgname });
 
-  const [orgrepos, userrepos] = await Promise.all([
+  const [orgrepos = {}, userrepos = {}] = await Promise.all([
     orgname &&
       fetchGithub(
         `https://api.github.com/search/repositories?q=org:${orgname}`,

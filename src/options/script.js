@@ -24,6 +24,7 @@ window.addEventListener("load", async () => {
   const statusInitialEl = formEl.querySelector(".status .initial");
   const statusResultEl = formEl.querySelector(".status .result");
   const buttonCheckEl = document.querySelector("button.button.check");
+  const buttonSave = document.querySelector("button.button.save");
   const scopesEl = statusResultEl.querySelector(".scopes");
   const userNameEl = statusResultEl.querySelector(".user .name");
   const orgNameEl = statusResultEl.querySelector(".org .name");
@@ -48,13 +49,8 @@ window.addEventListener("load", async () => {
     statusInitialEl.style.display = "block";
     statusResultEl.style.display = "none";
 
-    const {
-      scopes,
-      username,
-      orgname,
-      orgrepos,
-      userrepos,
-    } = await verifyGithubToken(token);
+    const { scopes, username, orgname, orgrepos, userrepos } =
+      await verifyGithubToken(token);
     logger.debug({ scopes, username, orgname, userrepos, orgrepos });
 
     statusInitialEl.style.display = "none";
@@ -106,6 +102,7 @@ window.addEventListener("load", async () => {
   // if (config.GITHUB_TOKEN.length > 35) setTimeout(showGithubValidation, 1000);
 
   formEl.addEventListener("submit", async e => {
+    e.preventDefault();
     logger.debug("option form being submitted", e);
     if (e.submitter.className.includes("save")) {
       const config = Array.from(
@@ -114,6 +111,14 @@ window.addEventListener("load", async () => {
         acc[k] = v;
         return acc;
       }, {});
+
+      const { username, orgname } = await verifyGithubToken(
+        config.GITHUB_TOKEN,
+      ).catch(() => ({}));
+      if (username || orgname) {
+        config.GITHUB_ACCOUNT = username || orgname;
+      }
+
       logger.debug("Config being sent to background", JSON.stringify(config));
       await sendMessage({ action: "saveConfig", config });
     }
