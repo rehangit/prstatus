@@ -115,8 +115,8 @@ window.addEventListener("load", async () => {
       const { username, orgname } = await verifyGithubToken(
         config.GITHUB_TOKEN,
       ).catch(() => ({}));
-      if (username || orgname) {
-        config.GITHUB_ACCOUNT = username || orgname;
+      if (orgname || username) {
+        config.GITHUB_ACCOUNT = orgname || username;
       }
 
       logger.debug("Config being sent to background", JSON.stringify(config));
