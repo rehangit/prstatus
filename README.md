@@ -2,17 +2,17 @@
 
 ![PR Status](src/icons/icon-active.png "PR Status")
 
-A chrome extension to show the Github PR Review statuses in the cards on JIRA board.
+A chrome extension to show the review status of Github PRs in the cards on JIRA board.
 
 ![Quick Overview](./assets/screenshot2.png)
 
 ## Features Highlight
 
 - For every PR associated with the JIRA ticket it adds a line of info:
-  - PR Status (Branch|Draft|Open|Merged|Closed)
+  - The status of the PR (Branch|Draft|Open|Merged|Closed)
   - Name of the repo
-  - Latest update of the reviews from each reviewer
-- The PR Status icons (Open or Merged) can be clicked to open the PR in Github.
+  - Latest update of the reviews from each reviewer (Commented|Approved|ChangeRequested)
+- The PR Status icons can be clicked to open the PR page on Github.
 - Status is automatically updated but can be manually refreshed by clicking on the extension icon (or by reloading the page).
 
 ## Getting Started
@@ -26,9 +26,11 @@ For regular use please install the extension from official published location:
 
 ### Setup
 
-To configure the extension please provide your Github token in the Options page. Github personal access token can be generated from https://github.com/settings/tokens. This token should have at least have 'repo' scopes.
+To configure the extension a Github personal access token is required with 'repo' scopes to access the review status of the PRs from Github. It can be generated from https://github.com/settings/tokens. (Should have at least 'repo' scopes).
 
-Once entered, press the Check button to validate the token. It should show the result of validation below the token input area. Kindly ensure the token has access to all the repos that you expect. In particular if SSO has been enabled on your Github org account the token should be explicitly Authorized for access to the org repos via SSO.
+Once entered, press the Check button to validate the token. It should show the result of validation below the token input area.
+
+Kindly ensure the token has access to all the repos that you expect. In particular if SSO has been enabled on your Github org account the token should be explicitly Authorized for access to the org repos via SSO.
 
 ## Limitation And Requirements
 
