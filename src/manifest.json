@@ -1,7 +1,7 @@
 {
   "name": "PR Status",
   "description": "Show Github PR Review Approval status in the cards on a Jira board",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "background": { "scripts": ["background.js"], "persistent": false },
   "browser_action": {
     "default_icon": "icons/icon-active.png",
