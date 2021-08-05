@@ -25,6 +25,7 @@
   "author": "Rehan Ahmad",
   "license": "ISC",
   "dependencies": {
+    "lodash.debounce": "^4.0.8",
     "lodash.uniqby": "^4.7.0"
   },
   "devDependencies": {

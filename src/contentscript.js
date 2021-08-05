@@ -1,11 +1,12 @@
-import { throttle } from "./utils";
+import debounce from "lodash.debounce";
 import makeLogger from "./logger";
 const logger = makeLogger("cs");
 import { getJiraIssues } from "./jira";
 import { getOpenPrs, getPrsWithReviews } from "./github";
 import { htmlToInsert, renderIssue } from "./htmltoinsert";
 
-const THROTTLE_RATE = 500;
+const THROTTLE_RATE = 2000;
+const REFRESH_DELAY = 5000;
 
 logger.debug("prstatus: content script global");
 
@@ -13,8 +14,6 @@ global.prStatus = global.prStatus || {};
 global.prStatus.config = global.prStatus.config = {};
 const prStatus = global.prStatus;
 
-const JIRA_URL_REGEX =
-  /(atlassian.net|jira.com)\/.*rapidView=|jira\/software\/projects/;
 const JIRA_URL_CLASSIC = /(atlassian.net|jira.com)\/.*rapidView=/;
 const JIRA_URL_NEWGEN = /(atlassian.net|jira.com)\/jira\/software\/projects/;
 
@@ -66,7 +65,7 @@ const refresh = async () => {
 
   const issues = await getJiraIssues(null, isJiraNewgen);
 
-  logger.debug({ issues });
+  logger.debug("found issues to refresh", { issues });
 
   let issuesUpdated = [];
 
@@ -118,7 +117,7 @@ const refresh = async () => {
     `Issues found in selected columns: ${issues.length}, updated with pr statuses: ${updatedCount}`,
   );
 
-  // fix bad css on newgen boards to allow cards auto grow with new lines
+  // fix bad css on newgen boards to allow cards to auto grow with new lines
   if (updatedCount && isJiraNewgen) {
     [
       ...document.querySelectorAll(
@@ -148,17 +147,47 @@ const refresh = async () => {
 chrome.runtime.onMessage.addListener(async (request, sender) => {
   if (request == "refresh") {
     logger.debug("content script received message: refresh", { sender });
-    await updateConfig().then(refresh);
+    await updateConfig().then(debouncedRefresh);
   }
 });
 
-const throttledRefresh = throttle(async () => {
+const debouncedRefresh = debounce(async () => {
   try {
     await refresh();
   } catch (err) {
     logger.error("refresh error", err);
   }
 }, THROTTLE_RATE);
+
+const observeCallback = async (mutationsList, observer) => {
+  const event = mutationsList.reduce((acc, mutation) => {
+    const { type, target } = mutation;
+    if (
+      (type === "childList" || type === "attributes") &&
+      (!!target.querySelector(".ghx-issue") ||
+        !!target.querySelector(
+          "[data-test-id='platform-card.ui.card.actions-section']",
+        ))
+    ) {
+      if (!acc[type]) acc[type] = [];
+      acc[type].push(mutation);
+      console.log("observerCallback mutation", mutation);
+    }
+    return acc;
+  }, {});
+
+  if (
+    (event.childList && event.childList.length >= 0) ||
+    (event.attributes && event.attributes.length >= 0)
+  ) {
+    logger.debug("observer callback", event, observer);
+
+    if (observer.refresh && !observer.pause) {
+      logger.debug("observer initiating a delayed refresh");
+      await observer.refresh(true);
+    }
+  }
+};
 
 window.addEventListener("load", async e => {
   const isJiraClassic = !!window.location.href.match(JIRA_URL_CLASSIC);
@@ -172,18 +201,28 @@ window.addEventListener("load", async e => {
       document.querySelector("#ghx-work") ||
       document.querySelector("[data-test-id='software-board.board-area']");
     if (targetNode) {
+      const observer = new MutationObserver(observeCallback);
+      observer.observe(targetNode, { childList: true, subtree: true });
+
+      const delayedRefresh = e => {
+        console.log("observer delayedRefresh");
+        setTimeout(async () => {
+          observer.pause = true;
+          try {
+            await refresh();
+          } catch (err) {
+            logger.error("refresh error", err);
+          }
+          observer.pause = false;
+        }, REFRESH_DELAY);
+      };
+
+      observer.refresh = delayedRefresh;
+      targetNode.addEventListener("dragend", delayedRefresh, false);
+
       const refreshNow = document.querySelector(".js-refresh-now");
       if (refreshNow)
-        refreshNow.addEventListener("click", throttledRefresh, false);
-
-      targetNode.addEventListener(
-        "mouseup",
-        e => {
-          logger.debug("drag event detected", e.currentTarget);
-          setTimeout(refresh, 2000);
-        },
-        false,
-      );
+        refreshNow.addEventListener("click", debouncedRefresh, false);
     }
 
     window.addEventListener("keydown", event => {
