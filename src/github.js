@@ -62,7 +62,10 @@ export const getPrsWithReviews = async (issue, useCache) => {
       const url = pr.url
         .replace("https://github.com/", "https://api.github.com/repos/")
         .replace("/pull/", "/pulls/");
-      const reviewsResponse = await cachedFetch(`${url}/reviews`, params);
+      const reviewsResponse = await cachedFetch(
+        `${url}/reviews?per_page=100`,
+        params,
+      );
       if (!(reviewsResponse instanceof Array)) {
         logger.error(reviewsResponse.message);
         return;
