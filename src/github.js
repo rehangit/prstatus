@@ -52,7 +52,7 @@ export const verifyGithubToken = async token => {
   return { username, orgname, scopes, orgrepos, userrepos };
 };
 
-export const getPrsWithReviews = async (issue, useCache) => {
+export const getPrsWithReviews = async (issue, openPrs) => {
   const issueKey = issue.key;
   const { GITHUB_TOKEN } = prStatus.config;
   const params = { headers: { Authorization: `token ${GITHUB_TOKEN}` } };
@@ -62,6 +62,19 @@ export const getPrsWithReviews = async (issue, useCache) => {
       const url = pr.url
         .replace("https://github.com/", "https://api.github.com/repos/")
         .replace("/pull/", "/pulls/");
+
+      const merged =
+        pr.status === "MERGED"
+          ? true
+          : pr.status !== "OPEN" || openPrs.find(opr => opr.url === pr.url)
+          ? false
+          : await fetch(url, params)
+              .then(res => res.json())
+              .then(res => {
+                logger.debug("verifying github merged status for:", pr.url);
+                return res.merged;
+              });
+
       const reviewsResponse = await cachedFetch(
         `${url}/reviews?per_page=100`,
         params,
@@ -80,10 +93,12 @@ export const getPrsWithReviews = async (issue, useCache) => {
         reviewsNotAuthor,
         reviewsSorted,
         reviews,
+        merged,
       });
       return {
         ...pr,
         reviews,
+        merged,
       };
     }),
   );
