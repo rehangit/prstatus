@@ -18,8 +18,8 @@ const reviewSortOrder = (a, b) => {
   return order(a.state) - +order(b.state);
 };
 
-const fetchGithub = async (url, token) =>
-  cachedFetch(url, { headers: { Authorization: `token ${token}` } }, 0);
+const fetchGithub = async (url, token, ttl = 0) =>
+  cachedFetch(url, { headers: { Authorization: `token ${token}` } }, ttl);
 
 export const verifyGithubToken = async token => {
   logger.debug({ token });
@@ -90,12 +90,10 @@ export const getPrsWithReviews = async (issue, openPrs) => {
           : pr.status !== "OPEN" || openPrs.find(opr => opr.html_url === pr.url)
           ? false
           : // jira reporting open while it may be merged
-            await cachedFetch(url, params).then(res =>
-              res.json(res => {
-                logger.debug("verifying github merged status for:", pr.url);
-                return res.merged;
-              }),
-            );
+            await cachedFetch(url, params).then(res => {
+              logger.debug("verifying github merged status for:", pr.url, res);
+              return res.merged;
+            });
 
       const reviewsResponse = await cachedFetch(
         `${url}/reviews?per_page=100`,
@@ -134,23 +132,18 @@ export const getPrsWithReviews = async (issue, openPrs) => {
 
 export const getOpenPrs = async (projectKey, account) => {
   const { GITHUB_TOKEN } = prStatus.config;
-
-  // const fetchWithLongCache = url =>
-  //   cachedFetch(
-  //     url,
-  //     { headers: { Authorization: `token ${token}` } },
-  //     true,
-  //     15 * 60 * 1000,
-  //   );
+  const OPEN_PRS_TTL = 5 * 60 * 1000;
 
   const [orgPrs, userPrs] = await Promise.all([
     fetchGithub(
       `https://api.github.com/search/issues?q=${projectKey}-+org:${account}+is:open&per_page=100`,
       GITHUB_TOKEN,
+      OPEN_PRS_TTL,
     ).catch(() => ({ items: [] })),
     fetchGithub(
       `https://api.github.com/search/issues?q=${projectKey}-+user:${account}+is:open&per_page=100`,
       GITHUB_TOKEN,
+      OPEN_PRS_TTL,
     ).catch(() => ({ items: [] })),
   ]);
 
@@ -162,3 +155,33 @@ export const getOpenPrs = async (projectKey, account) => {
     "url",
   );
 };
+
+// export const getClosedPrs = async (projectKey, account) => {
+//   const { GITHUB_TOKEN } = prStatus.config;
+//   const CLOSED_PRS_TTL = 15 * 60 * 1000;
+//   const CLOSED_PRS_RANGE_DAYS = 15;
+//   const date = new Date();
+//   date.setDate(date.getDate() - CLOSED_PRS_RANGE_DAYS);
+//   const since = date.toISOString().slice(0, 10);
+
+//   const [orgPrs, userPrs] = await Promise.all([
+//     fetchGithub(
+//       `https://api.github.com/search/issues?q=${projectKey}-+org:${account}+is:pr+closed:>${since}&per_page=100`,
+//       GITHUB_TOKEN,
+//       CLOSED_PRS_TTL,
+//     ).catch(() => ({ items: [] })),
+//     fetchGithub(
+//       `https://api.github.com/search/issues?q=${projectKey}-+user:${account}+is:pr+closed:>${since}&per_page=100`,
+//       GITHUB_TOKEN,
+//       CLOSED_PRS_TTL,
+//     ).catch(() => ({ items: [] })),
+//   ]);
+
+//   return uniqBy(
+//     [
+//       ...((orgPrs && orgPrs.items) || []),
+//       ...((userPrs && userPrs.items) || []),
+//     ],
+//     "url",
+//   );
+// };
