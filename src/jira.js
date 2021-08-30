@@ -22,7 +22,7 @@ export const getJiraIssues = async columns => {
   const activeColumnNames = (
     columns && columns.length > 0
       ? boardColumns.filter(c => columns.toLowerCase().includes(c.name))
-      : boardColumns.slice(1)
+      : boardColumns.slice(1, -1)
   ).map(c => c.name);
 
   logger.debug({ activeColumnNames });
