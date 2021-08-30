@@ -57,6 +57,27 @@ export const getPrsWithReviews = async (issue, openPrs) => {
   const { GITHUB_TOKEN } = prStatus.config;
   const params = { headers: { Authorization: `token ${GITHUB_TOKEN}` } };
 
+  // collect prs from github open prs that are not reported by jira api as open
+  const missingPrs = openPrs
+    .filter(
+      opr =>
+        opr.title.toLowerCase().includes(issueKey.toLowerCase()) &&
+        issue.prs.every(pr => pr.url !== opr.html_url),
+    )
+    .map(opr => ({
+      url: opr.html_url,
+      status: opr.draft ? "draft" : "open",
+      name: opr.title,
+      author: { name: opr.user.login },
+      id: `#${opr.number}`,
+      repository: opr.repository_url.replace("api.", "").replace("repos/", ""),
+      opr,
+    }));
+
+  console.log("missing prs for", { issue, missingPrs });
+  issue.missingPrs = missingPrs;
+  issue.prs.push(...missingPrs);
+
   const prsWithReviews = await Promise.all(
     issue.prs.map(async pr => {
       const url = pr.url
@@ -66,14 +87,15 @@ export const getPrsWithReviews = async (issue, openPrs) => {
       const merged =
         pr.status === "MERGED"
           ? true
-          : pr.status !== "OPEN" || openPrs.find(opr => opr.url === pr.url)
+          : pr.status !== "OPEN" || openPrs.find(opr => opr.html_url === pr.url)
           ? false
-          : await fetch(url, params)
-              .then(res => res.json())
-              .then(res => {
+          : // jira reporting open while it may be merged
+            await cachedFetch(url, params).then(res =>
+              res.json(res => {
                 logger.debug("verifying github merged status for:", pr.url);
                 return res.merged;
-              });
+              }),
+            );
 
       const reviewsResponse = await cachedFetch(
         `${url}/reviews?per_page=100`,
@@ -103,25 +125,23 @@ export const getPrsWithReviews = async (issue, openPrs) => {
     }),
   );
 
-  logger.debug(
-    "reviews added to issue prs",
-    issue.key,
-    issue.columnName,
+  logger.debug("reviews added to issue prs", issue.key, issue.columnName, {
     prsWithReviews,
-  );
+    issue,
+  });
   return prsWithReviews;
 };
 
 export const getOpenPrs = async (projectKey, account) => {
   const { GITHUB_TOKEN } = prStatus.config;
 
-  const fetchWithLongCache = url =>
-    cachedFetch(
-      url,
-      { headers: { Authorization: `token ${token}` } },
-      true,
-      15 * 60 * 1000,
-    );
+  // const fetchWithLongCache = url =>
+  //   cachedFetch(
+  //     url,
+  //     { headers: { Authorization: `token ${token}` } },
+  //     true,
+  //     15 * 60 * 1000,
+  //   );
 
   const [orgPrs, userPrs] = await Promise.all([
     fetchGithub(
@@ -134,8 +154,11 @@ export const getOpenPrs = async (projectKey, account) => {
     ).catch(() => ({ items: [] })),
   ]);
 
-  return [
-    ...((orgPrs && orgPrs.items) || []),
-    ...((userPrs && userPrs.items) || []),
-  ];
+  return uniqBy(
+    [
+      ...((orgPrs && orgPrs.items) || []),
+      ...((userPrs && userPrs.items) || []),
+    ],
+    "url",
+  );
 };

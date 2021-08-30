@@ -19,9 +19,10 @@ export const getJiraIssues = async columns => {
     {},
   );
 
-  const activeColumnNames = (columns && columns.length > 0
-    ? boardColumns.filter(c => columns.toLowerCase().includes(c.name))
-    : boardColumns.slice(1, -1)
+  const activeColumnNames = (
+    columns && columns.length > 0
+      ? boardColumns.filter(c => columns.toLowerCase().includes(c.name))
+      : boardColumns.slice(1)
   ).map(c => c.name);
 
   logger.debug({ activeColumnNames });
@@ -53,7 +54,12 @@ export const getJiraIssues = async columns => {
         activeIssues.length,
       );
 
-      logger.debug("issuesWithPullRequests", `${JIRA_DEV_URL}${i.id}`, res);
+      logger.debug(
+        "issuesWithPullRequests",
+        `${JIRA_DEV_URL}${i.id}`,
+        i.key,
+        res,
+      );
 
       if (!res || !res.detail) return i;
 

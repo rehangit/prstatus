@@ -212,25 +212,32 @@ const refresh = async useCache => {
             `,
             });
           });
-          const noprStatusRows = issue.noprs.map(nopr => {
-            logger.log("issue with noprs", { issue });
-            const repo = nopr.repository.url.split("/").slice(-1)[0];
-            return htmlToInsert({
-              ...nopr,
-              ...attribs["branch"],
-              repo,
-              right: `
-              <a 
-                href="${nopr.createPullRequestUrl}"
-                target="_blank"
-                onclick="arguments[0].stopPropagation()"
-                title="Create a PR on the associated branch"
-                class="create"
-                style="text-decoration: none; font-size: xx-small"
-              >Create PR</a>
-            `,
+          const noprStatusRows = issue.noprs
+            .filter(
+              nopr =>
+                issue.missingPrs.every(
+                  m => m.repository !== nopr.repository.url,
+                ) &&
+                nopr.name !== "main" &&
+                nopr.name !== "master",
+            )
+            .map(nopr => {
+              logger.log("issue with noprs", { issue });
+              const repo = nopr.repository.url.split("/").slice(-1)[0];
+              return htmlToInsert({
+                ...nopr,
+                ...attribs.branch,
+                repo,
+                right: `<a 
+                      href="${nopr.createPullRequestUrl}"
+                      target="_blank"
+                      onclick="arguments[0].stopPropagation()"
+                      title="Create a PR on the associated branch"
+                      class="create"
+                      style="text-decoration: none; font-size: xx-small"
+                    >Create PR</a>`,
+              });
             });
-          });
 
           const rows = [...prStatusRows, ...noprStatusRows];
 
