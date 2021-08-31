@@ -74,7 +74,7 @@ export const getPrsWithReviews = async (issue, openPrs) => {
       opr,
     }));
 
-  console.log("missing prs for", { issue, missingPrs });
+  logger.debug("missing prs for", { issue, missingPrs });
   issue.missingPrs = missingPrs;
   issue.prs.push(...missingPrs);
 

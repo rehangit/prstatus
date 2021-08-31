@@ -91,11 +91,11 @@ window.addEventListener("load", async () => {
     statusResultEl.style.display = "none";
   });
   githubInputEl.addEventListener("focus", e => {
-    console.log("removing password attribute");
+    logger.debug("removing password attribute");
     githubInputEl.setAttribute("type", "text");
   });
   githubInputEl.addEventListener("blur", e => {
-    console.log("adding password attribute back");
+    logger.debug("adding password attribute back");
     githubInputEl.setAttribute("type", "password");
   });
 
