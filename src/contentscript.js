@@ -71,9 +71,7 @@ const refresh = async useCache => {
 
     JIRA_BOARD_ID = (search.match("rapidView=([0-9]+)") ||
       search.match("/boards/([0-9]+)"))[1];
-  } catch (err) {
-    logger.error("unable to detect JIRA_BOARD_ID / JIRA_PROJECT_KEY", err);
-  }
+  } catch (err) {}
 
   if (!JIRA_BOARD_ID || !JIRA_BOARD_ID.length) {
     refreshing = false;
@@ -301,10 +299,14 @@ const observeCallback = async (mutationsList, observer) => {
 };
 
 window.addEventListener("load", async e => {
-  JIRA_BOARD_ID = (window.location.search.match(
-    ".+atlassian.net/.+rapidView=([0-9]+)",
-  ) || window.location.href.match(".+atlassian.net/.+/boards/([0-9]+)"))[1];
-  // JIRA_BOARD_ID = window.location.search.match("rapidView=([0-9]+)")[1];
+  try {
+    JIRA_BOARD_ID = (window.location.search.match(
+      ".+atlassian.net/.+rapidView=([0-9]+)",
+    ) || window.location.href.match(".+atlassian.net/.+/boards/([0-9]+)"))[1];
+  } catch (err) {
+    logger.log("Did not detect JIRA_BOARD_ID in the Url", window.location.href);
+  }
+
   if (JIRA_BOARD_ID && JIRA_BOARD_ID.length) {
     logger.debug("content script load");
     await updateConfig().then(refresh);
