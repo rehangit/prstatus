@@ -61,17 +61,25 @@ const attribs = {
 let refreshing = false;
 const refresh = async useCache => {
   let JIRA_PROJECT_KEY;
-
   try {
-    JIRA_BOARD_ID = window.location.search.match("rapidView=([0-9]+)")[1];
-    JIRA_PROJECT_KEY = window.location.search.match("projectKey=([A-Z]+)")[1];
-  } catch (err) {}
+    JIRA_PROJECT_KEY = (window.location.search.match(
+      "projectKey=([A-Z0-9]+)",
+    ) || window.location.href.match("projectKey=([A-Z0-9]+)"))[1];
+    JIRA_BOARD_ID = (window.location.search.match(
+      ".+atlassian.net/.+rapidView=([0-9]+)",
+    ) || window.location.href.match(".+atlassian.net/.+/boards/([0-9]+)"))[1];
+
+    JIRA_BOARD_ID = (search.match("rapidView=([0-9]+)") ||
+      search.match("/boards/([0-9]+)"))[1];
+  } catch (err) {
+    logger.error("unable to detect JIRA_BOARD_ID / JIRA_PROJECT_KEY", err);
+  }
 
   if (!JIRA_BOARD_ID || !JIRA_BOARD_ID.length) {
     refreshing = false;
     logger.log("refresh aborted: jira board id not available in the url", {
       ...config,
-      search: window.location.search,
+      search,
     });
     return;
   }
@@ -293,7 +301,10 @@ const observeCallback = async (mutationsList, observer) => {
 };
 
 window.addEventListener("load", async e => {
-  JIRA_BOARD_ID = window.location.search.match("rapidView=([0-9]+)")[1];
+  JIRA_BOARD_ID = (window.location.search.match(
+    ".+atlassian.net/.+rapidView=([0-9]+)",
+  ) || window.location.href.match(".+atlassian.net/.+/boards/([0-9]+)"))[1];
+  // JIRA_BOARD_ID = window.location.search.match("rapidView=([0-9]+)")[1];
   if (JIRA_BOARD_ID && JIRA_BOARD_ID.length) {
     logger.debug("content script load");
     await updateConfig().then(refresh);

@@ -1,7 +1,7 @@
 {
   "name": "PR Status",
   "description": "Show Github PR Review Approval status in the cards on a Jira board",
-  "version": "1.0.13",
+  "version": "1.0.14",
   "background": { "scripts": ["background.js"], "persistent": false },
   "browser_action": {
     "default_icon": "icons/icon-active.png",
@@ -11,6 +11,7 @@
     {
       "matches": [
         "https://*.atlassian.net/secure/RapidBoard.jspa?*",
+        "https://*.atlassian.net/jira/software/*",
         "https://*.jira.com/secure/RapidBoard.jspa?*"
       ],
       "js": ["contentscript.js"],
