@@ -12,8 +12,6 @@ global.prStatus = global.prStatus || {};
 global.prStatus.config = global.prStatus.config = {};
 const prStatus = global.prStatus;
 
-let JIRA_BOARD_ID;
-
 const updateConfig = async () => {
   const config = await new Promise(resolve =>
     chrome.runtime.sendMessage({ action: "sendConfig" }, resolve),
@@ -58,39 +56,48 @@ const attribs = {
   undefined: { text: "Undefined", color: "gray", svg: "" },
 };
 
+//https://company.atlassian.net/secure/RapidBoard.jspa?projectKey=ABCD&useStoredSettings=true&rapidView=123
+//https://company.atlassian.net/jira/software/c/projects/ABCD/boards/123
+
+const getBoardId = () =>
+  (document.location.href.match("rapidView=([0-9]+)") ||
+    document.location.href.match("/boards/([0-9]+)"))?.[1];
+
+const getProjectKey = () =>
+  (document.location.href.match("projectKey=([0-9]+)") ||
+    document.location.href.match("/projects/([0-9]+)"))?.[1] ||
+  document.querySelector('meta[name="ghx-project-key"]')?.content ||
+  document
+    .querySelector(".ghx-issue[data-issue-key]")
+    ?.dataset?.issueKey.split("-")?.[0];
+
 let refreshing = false;
 const refresh = async useCache => {
-  let JIRA_PROJECT_KEY;
-  try {
-    JIRA_PROJECT_KEY = (window.location.search.match(
-      "projectKey=([A-Z0-9]+)",
-    ) || window.location.href.match("projectKey=([A-Z0-9]+)"))[1];
-    JIRA_BOARD_ID = (window.location.search.match(
-      ".+atlassian.net/.+rapidView=([0-9]+)",
-    ) || window.location.href.match(".+atlassian.net/.+/boards/([0-9]+)"))[1];
+  const config = prStatus.config;
+  const jiraBoardId = getBoardId();
+  const jiraBoardKey = getProjectKey();
 
-    JIRA_BOARD_ID = (search.match("rapidView=([0-9]+)") ||
-      search.match("/boards/([0-9]+)"))[1];
-  } catch (err) {}
-
-  if (!JIRA_BOARD_ID || !JIRA_BOARD_ID.length) {
+  if (
+    !jiraBoardId ||
+    !jiraBoardId.length ||
+    !jiraBoardKey ||
+    !jiraBoardKey.length
+  ) {
     refreshing = false;
-    logger.log("refresh aborted: jira board id not available in the url", {
-      ...config,
-      search,
-    });
+    logger.debug(
+      "refresh aborted: jira board id not available in the url",
+      window.document.location.href,
+      config,
+    );
     return;
   }
 
-  const config = prStatus.config;
   logger.debug("refresh triggered", config);
   if (!config.GITHUB_TOKEN || !config.GITHUB_TOKEN.length) {
     logger.error("refresh aborted: no github token", config);
     refreshing = false;
     return;
   }
-
-  let GITHUB_ACCOUNT = config.GITHUB_ACCOUNT;
 
   if (refreshing) {
     logger.debug("Already refreshing...");
@@ -104,9 +111,11 @@ const refresh = async useCache => {
 
   let issuesUpdated = [];
 
+  let GITHUB_ACCOUNT = config.GITHUB_ACCOUNT;
+
   if (issues.length) {
-    if (!JIRA_PROJECT_KEY || !JIRA_PROJECT_KEY.length) {
-      JIRA_PROJECT_KEY = issues[0].key.split("-")[0];
+    if (!jiraBoardKey || !jiraBoardKey.length) {
+      jiraBoardKey = issues[0].key.split("-")[0];
     }
 
     if (!GITHUB_ACCOUNT || !GITHUB_ACCOUNT.length) {
@@ -115,14 +124,14 @@ const refresh = async useCache => {
     }
 
     logger.debug("extracted details", {
-      JIRA_BOARD_ID,
-      JIRA_PROJECT_KEY,
+      jiraBoardId,
+      jiraBoardKey,
       GITHUB_ACCOUNT,
     });
 
     const openPrs =
-      JIRA_PROJECT_KEY && JIRA_PROJECT_KEY.length
-        ? await getOpenPrs(JIRA_PROJECT_KEY, GITHUB_ACCOUNT)
+      jiraBoardKey && jiraBoardKey.length
+        ? await getOpenPrs(jiraBoardKey, GITHUB_ACCOUNT)
         : [];
     const draftPrs = openPrs.filter(pr => pr.draft);
     logger.debug("all open prs from github", { openPrs, draftPrs });
@@ -228,7 +237,7 @@ const refresh = async useCache => {
                 nopr.name !== "master",
             )
             .map(nopr => {
-              logger.log("issue with noprs", { issue });
+              logger.debug("issue with noprs", { issue });
               const repo = nopr.repository.url.split("/").slice(-1)[0];
               return htmlToInsert({
                 ...nopr,
@@ -299,52 +308,47 @@ const observeCallback = async (mutationsList, observer) => {
 };
 
 window.addEventListener("load", async e => {
-  try {
-    JIRA_BOARD_ID = (window.location.search.match(
-      ".+atlassian.net/.+rapidView=([0-9]+)",
-    ) || window.location.href.match(".+atlassian.net/.+/boards/([0-9]+)"))[1];
-  } catch (err) {
-    logger.log("Did not detect JIRA_BOARD_ID in the Url", window.location.href);
+  if (!getBoardId()) {
+    logger.log("Jira board id not detected in the url", window.location.href);
+    return;
   }
 
-  if (JIRA_BOARD_ID && JIRA_BOARD_ID.length) {
-    logger.debug("content script load");
-    await updateConfig().then(refresh);
-    logger.debug("content script refreshed with config", prStatus.config);
+  logger.debug("content script event load");
+  await updateConfig().then(refresh);
+  logger.debug("content script refreshed with config", prStatus.config);
 
-    const targetNode = document.querySelector("#ghx-work");
-    if (targetNode) {
-      const observer = new MutationObserver(observeCallback);
-      observer.observe(targetNode, { childList: true, subtree: true });
+  const targetNode = document.querySelector("#ghx-work");
+  if (targetNode) {
+    const observer = new MutationObserver(observeCallback);
+    observer.observe(targetNode, { childList: true, subtree: true });
 
-      const throttledRefresh = throttle(async () => {
-        observer.pause = true;
-        try {
-          await refresh();
-        } catch (err) {
-          logger.error("refresh error", err);
-        }
-        observer.pause = false;
-      }, THROTTLE_RATE);
+    const throttledRefresh = throttle(async () => {
+      observer.pause = true;
+      try {
+        await refresh();
+      } catch (err) {
+        logger.error("refresh error", err);
+      }
+      observer.pause = false;
+    }, THROTTLE_RATE);
 
-      observer.refresh = throttledRefresh;
-      targetNode.addEventListener("dragend", throttledRefresh, false);
+    observer.refresh = throttledRefresh;
+    targetNode.addEventListener("dragend", throttledRefresh, false);
+  }
+
+  // targetNode.addEventListener("mouseup", throttledRefresh, false);
+
+  window.addEventListener("keydown", event => {
+    if (event.key === "Shift") {
+      chrome.runtime.sendMessage({ action: "shiftPressed" });
     }
+  });
+  window.addEventListener("keyup", event => {
+    if (event.key === "Shift") {
+      chrome.runtime.sendMessage({ action: "shiftReleased" });
+    }
+  });
 
-    // targetNode.addEventListener("mouseup", throttledRefresh, false);
-
-    window.addEventListener("keydown", event => {
-      if (event.key === "Shift") {
-        chrome.runtime.sendMessage({ action: "shiftPressed" });
-      }
-    });
-    window.addEventListener("keyup", event => {
-      if (event.key === "Shift") {
-        chrome.runtime.sendMessage({ action: "shiftReleased" });
-      }
-    });
-
-    const refreshNow = document.querySelector(".js-refresh-now");
-    if (refreshNow) refresh.addEventListener("click", throttledRefresh, false);
-  }
+  const refreshNow = document.querySelector(".js-refresh-now");
+  if (refreshNow) refresh.addEventListener("click", throttledRefresh, false);
 });
